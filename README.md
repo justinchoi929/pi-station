@@ -1,207 +1,194 @@
-# Pi Web
+# Pi Station
 
-[中文文档](./docs/README.zh-CN.md) | [日本語](./docs/README.ja.md) | [Русский](./docs/README.ru.md)
+Pi Station 是 [pi 编程智能体](https://github.com/earendil-works/pi)的本地 Web 和 macOS 桌面客户端。它直接调用你已经安装在 `PATH` 中的 `pi`，共用 pi 的配置、登录凭据、扩展和会话文件。
 
-Local browser UI for the [pi coding agent](https://github.com/earendil-works/pi). Pi Web uses the same local configuration and session files as pi, so you can browse and resume conversations, run agent turns, configure models and resources, and inspect project files from a browser.
-
-**[Try the interactive demo →](https://agegr.github.io/pi-web/)** The real Pi Web UI runs entirely in your browser, with sample sessions, files and models. There is nothing to install; replies are pre-written and no model is called.
-
-![Pi Web displaying a pi session with structured Markdown, tool calls, and project navigation](https://raw.githubusercontent.com/agegr/pi-web/main/docs/screenshot2.png)
-
-## Features
-
-- **Session workspace**: browse, resume, rename, export, and delete conversations grouped by project, with running state, context usage, cost, and compaction details.
-- **Two ways to branch**: **New session** creates an independent session file from an earlier message; **Edit from here** creates a branch inside the current session.
-- **Project file tools**: browse and upload files, inspect Git diffs, and preview source, Markdown, images, audio, PDFs, and DOCX files with automatic refresh.
-- **Git worktrees**: switch checkouts from the sidebar while keeping sessions from the same repository grouped together.
-- **Web-based configuration**: manage provider login and API keys, models, model tests, plugin packages, and skills without leaving Pi Web.
-- **English, Simplified Chinese, and Traditional Chinese UI**: Pi Web follows the browser language initially and provides a language switcher in the top bar.
-
-## Quick Start
-
-Pi Web requires Node.js 22.19.0 or newer. Check your version with `node --version`, then run:
-
-```bash
-npx @agegr/pi-web@latest
+```text
+浏览器 / Pi Station.app
+        │ HTTP + SSE
+Pi Station 本地服务（127.0.0.1:30141）
+        │ JSONL RPC
+PATH 中的 pi --mode rpc
+        │
+~/.pi/agent
 ```
 
-The CLI opens a browser after the server is ready. If it does not, open [http://127.0.0.1:30141](http://127.0.0.1:30141). Pi Web listens only on `127.0.0.1` by default.
+Pi Station 独立于 pi 源码仓库，不需要 `../pi` 或 `sync-pi`。使用时只需启动 Pi Station，需要运行会话时它会自动创建 pi 子进程，无须再手动开启一个 pi 终端。
 
-If no model provider is configured yet, open the **Models** panel to sign in or add an API key.
+## 功能
 
-To install the `pi-web` command globally:
+- **会话管理**：按项目浏览、继续、重命名、置顶、归档、导出和删除对话，查看运行状态、上下文和用量。
+- **会话分支**：从已有消息创建独立会话，或在当前会话内切换分支。
+- **项目文件**：浏览和上传文件，查看 Git Diff，预览源码、Markdown、图片、音频、PDF 和 DOCX。
+- **Git worktree**：切换项目工作目录，将同一仓库不同 worktree 的会话归组显示。
+- **模型与资源设置**：管理模型、Provider 登录、API Key、插件包、技能和 MCP 配置。
+- **Web 与桌面共用服务**：浏览器和 Electron 窗口可以同时连接同一个本地服务。
+- **界面**：支持英文、简体中文、繁体中文，以及跟随系统切换的 Clay 浅色和深色主题。
+
+## 环境要求
+
+- **Node.js 22.19.0 或更新版本**：运行 Pi Station 的 Web 后台。
+- **npm**：安装依赖、执行仓库中的启动和构建脚本。
+- **独立安装的 pi CLI**：启动 Pi Station 的环境中必须能找到 `pi`。
+- **macOS**：使用当前桌面客户端和 `.app` 打包脚本时需要。
+
+先在终端确认：
 
 ```bash
-npm install -g @agegr/pi-web@latest
-pi-web
+node --version
+npm --version
+pi --version
 ```
 
-Commands:
+如果已经在 pi 中配置过模型和登录凭据，Pi Station 会沿用它们。默认数据目录为 `~/.pi/agent`；`PI_CODING_AGENT_DIR` 可以指定其他 pi 数据目录。
+
+## 安装
 
 ```bash
-pi-web version          # print the installed version
-pi-web status           # list running servers
-pi-web stop [--port N]  # stop a running server
-pi-web open [--port N]  # open a running server in the browser
-pi-web update [--check] # update a global npm install
+git clone "https://github.com/justinchoi929/pi-station.git"
+cd "pi-station"
+npm ci
+npm run build
 ```
 
-To update, run `pi-web stop`, then `pi-web update` (or run the same install command again). To uninstall, run `npm uninstall -g @agegr/pi-web`.
+这是从源码安装的方式。`npm run build` 生成 Web 生产构建，供后续 Web 和桌面模式使用。已有开发服务运行时，请先停止它再构建，避免同时写入 `.next/`。
 
-## Configuration
+## 启动 Web
 
-For port and hostname, command-line options override the corresponding environment variables. Either `--no-open` or `PI_WEB_NO_OPEN=1` disables automatic browser opening. Run `pi-web --help` (or `-h`) to print startup options and exit without starting the server. Unknown options exit with an error.
+在仓库目录执行：
 
-| Option or environment variable | Purpose | Default |
+```bash
+npm run web
+```
+
+服务就绪后会自动打开浏览器，也可以手动访问 [http://127.0.0.1:30141](http://127.0.0.1:30141)。默认仅监听本机。
+
+不自动打开浏览器：
+
+```bash
+npm run web -- --no-open
+```
+
+`npm run web` 是 `node bin/pi-web.js` 的快捷方式。npm 负责执行脚本，实际后台由 Node.js 运行；对话由外部 pi CLI 执行。只读浏览会话不需要启动对话进程，模型列表查询可能短暂启动一个 pi 进程。
+
+## 启动桌面客户端
+
+在仓库目录执行：
+
+```bash
+npm run desktop
+```
+
+客户端先连接本地服务：
+
+- 已有 Web 或开发服务时，直接复用，无须再启动一个服务。
+- 没有服务时，自动启动生产服务，因此需要提前完成 `npm run build`。
+
+从 Finder 启动时，客户端会读取登录 Shell 的环境，使后台能够找到终端中的 Node.js 和 pi。
+
+### 生成 macOS 应用
+
+完成 Web 构建后执行：
+
+```bash
+npm run dist
+```
+
+应用位于 `dist/mac-*/Pi Station.app`，可以从 Finder 双击打开。
+
+**当前 `.app` 是桌面启动壳，仍依赖打包时的仓库路径、`node_modules`、Web 构建和系统 Node.js，也需要独立安装的 pi。** 请保留仓库目录；它目前不是可脱离仓库分发的完整安装包。`npm run dist` 不会自动构建 Web，也不会打包 pi。
+
+桌面端启动的服务日志位于 `~/Library/Logs/Pi Station/server.log`。
+
+## 关闭服务
+
+| 启动方式 | 关闭方式 |
+| --- | --- |
+| 终端中运行 `npm run web` 或 `npm run dev` | 在对应终端按 `Ctrl+C`。 |
+| 客户端自动启动了后台服务 | 按 `⌘Q`，或在菜单栏选择 **Quit Pi Station**。 |
+| 客户端连接了已有的终端服务 | 退出客户端后，仍需在服务终端按 `Ctrl+C`。 |
+
+关闭桌面窗口只会隐藏窗口；菜单栏图标和后台服务会继续运行。关闭浏览器标签页也不会停止服务或正在运行的对话。
+
+## 配置
+
+| 变量或参数 | 用途 | 默认值 |
 | --- | --- | --- |
-| `--help`, `-h` | Print startup options and exit | — |
-| `--port <port>`, `-p <port>`, or `PORT` | Server port | `30141` |
-| `--hostname <host>`, `-H <host>`, or `PI_WEB_HOSTNAME` | Bind hostname | `127.0.0.1` |
-| `--no-open` or `PI_WEB_NO_OPEN=1` | Do not open a browser automatically | Browser opens |
-| `PI_WEB_APP_NAME` | PWA manifest `name` and `short_name`; surrounding whitespace is trimmed, empty values use the default | `Pi Web` |
-| `PI_WEB_SKIP_VERSION_CHECK=1` | Disable Pi Web update checks | Unset |
-| `PI_WEB_ALLOWED_HOSTS` | Additional exact proxy or custom hostnames, comma-separated | Unset |
-| `PI_WEB_PASSWORD` | Enable browser password login; API clients may use Basic Auth with username `pi` | Authentication disabled |
-| `PI_WEB_IDLE_TIMEOUT_MS` | Session idle timeout in milliseconds, up to `2147483647`; `0` disables idle shutdown; invalid or out-of-range values use the default | `600000` (10 min) |
-| `PI_WEB_SHUTDOWN_DEADLINE_MS` | How long extensions get to handle `session_shutdown` before a closing session is disposed anyway, in milliseconds up to `2147483647`; `0`, invalid or out-of-range values use the default | `5000` (5 s) |
+| `PI_STATION_PI` | 指定外部 pi 可执行文件，仅填路径，不附加命令参数。 | 从 `PATH` 查找 `pi` |
+| `npm run web -- --port <端口>` 或 `PORT` | Web 生产服务端口，命令行参数优先。 | `30141` |
+| `PI_STATION_PORT` | 桌面客户端连接或启动服务时使用的端口。 | `30141` |
+| `PI_STATION_HOME` | 覆盖桌面客户端使用的 Pi Station 仓库路径。 | 开发时为当前仓库，打包后为记录的仓库路径 |
+| `--no-open` 或 `PI_WEB_NO_OPEN=1` | Web 生产服务启动后不自动打开浏览器。 | 自动打开 |
+| `PI_WEB_APP_NAME` | PWA 安装名称。 | `Pi Station` |
+| `PI_WEB_PASSWORD` | 启用浏览器密码登录。 | 未启用 |
 
-Set `PI_WEB_APP_NAME` before starting the server (for example, `PI_WEB_APP_NAME='Work Pi' pi-web`). After changing it, restart the server to serve the new manifest; no rebuild is required. Updates to the name of an already installed PWA are managed by the browser and are not guaranteed to appear immediately. This does not change the page title or icons.
-
-For example:
+例如，指定 pi 的绝对路径：
 
 ```bash
-pi-web --help
-pi-web -p 8080 -H 0.0.0.0 --no-open
+PI_STATION_PI="/absolute/path/to/pi" npm run web
 ```
 
-### Remote Access
-
-Binding to a non-loopback address exposes an agent that can execute high-privilege actions. On a trusted LAN, require a long random password:
+为 Web 和桌面客户端使用同一个自定义端口：
 
 ```bash
-PI_WEB_PASSWORD='a-long-random-password' pi-web --hostname 0.0.0.0
+# 终端一
+npm run web -- --port 30142 --no-open
+
+# 终端二
+PI_STATION_PORT=30142 npm run desktop
 ```
 
-Password authentication does not encrypt the connection. Do not expose Pi Web over plain HTTP to the internet; use HTTPS through a trusted reverse proxy or a trusted VPN. If a reverse proxy sends an external hostname, add that exact name to `PI_WEB_ALLOWED_HOSTS`. This allow-list does not change the address Pi Web binds to.
+这些端口参数针对生产启动方式；`npm run dev` 的默认端口由开发脚本固定为 `30141`。
 
-### HTTP Proxy
+## pi 升级与扩展兼容
 
-Server-side model and API requests honor the standard `HTTP_PROXY`, `HTTPS_PROXY`, and `NO_PROXY` environment variables.
+pi 由你独立安装和升级。升级后重启 Pi Station 服务，让新会话进程使用更新后的可执行文件；不需要同步 pi 源码。
 
-On macOS or Linux:
+- pi CLI 负责加载自己的扩展、Provider、MCP 服务和工具。
+- 标准 RPC 交互（选择、确认、输入、编辑）、通知、状态栏和文本组件会转发到界面。
+- 终端专用的 `custom()` UI 和组件工厂受 pi RPC 的能力限制。
+- 原 Pi Web 内置的子智能体运行机制不会注入新的 CLI 会话；旧子智能体记录仍可查看，新的子智能体能力应由 pi 扩展提供。
+- 固定版本的 npm pi SDK 依赖目前仍用于部分会话文件读取和设置兼容逻辑；对话执行使用的是 PATH 中的 pi。
+
+实现细节见 [PI_STATION.md](./PI_STATION.md)。
+
+## 开发
+
+安装依赖后启动带热更新的服务：
 
 ```bash
-HTTP_PROXY=http://127.0.0.1:7890 \
-HTTPS_PROXY=http://127.0.0.1:7890 \
-NO_PROXY=localhost,127.0.0.1 \
-npx @agegr/pi-web@latest
-```
-
-On Windows PowerShell:
-
-```powershell
-$env:HTTP_PROXY = "http://127.0.0.1:7890"
-$env:HTTPS_PROXY = "http://127.0.0.1:7890"
-$env:NO_PROXY = "localhost,127.0.0.1"
-npx @agegr/pi-web@latest
-```
-
-## Notes
-
-- **Agent data**: Pi Web reads pi data from `~/.pi/agent` by default, including session files under `sessions/<encoded-cwd>/<timestamp>_<uuid>.jsonl`. Set `PI_CODING_AGENT_DIR` to use another pi agent directory.
-- **Filesystem access**: Pi Web must be able to read the agent data directory and the working directories recorded by its sessions. Run Pi Web in the same filesystem environment as pi when sharing existing sessions.
-- **Shared configuration**: the Models panel uses pi's model, settings, and credential storage, so changes are visible to both interfaces.
-- **File access boundary**: the file browser is limited to working directories selected in Pi Web and project or session roots it already knows about; it is not a general filesystem browser.
-- **Git worktrees**: see [Worktrees in Pi Web](./docs/worktrees.md) for switcher visibility, worktree creation, and removal behavior.
-
-### Downstream Session Context Menu
-
-Electron wrappers and other downstream integrations can provide a session-row
-context menu without patching `SessionSidebar`. Listen for the cancelable
-`pi-web:session-row-contextmenu` browser event and call `preventDefault()`
-synchronously when the integration will handle it:
-
-```js
-window.addEventListener("pi-web:session-row-contextmenu", (event) => {
-  event.preventDefault();
-  const { id, path, cwd, name, clientX, clientY, refresh } = event.detail;
-
-  void openSessionMenu({ id, path, cwd, name, clientX, clientY }).then((changed) => {
-    if (changed) refresh();
-  });
-});
-```
-
-The detail object contains `id`, `path`, `cwd`, optional `name`, pointer
-coordinates, and a `refresh()` callback for actions that change the session
-list. If no listener cancels the extension event, Pi Web opens its built-in
-session menu (pin, rename, fork, mark read or unread, archive, open in new
-tab, delete) at the pointer instead of the browser's native context menu.
-The row's `⋯` button always opens the built-in menu and does not dispatch the
-event. Sessions not yet saved to disk get no built-in menu, so the native one
-still appears for them. This hook is browser-side and independent of Pi agent
-extensions.
-
-### Extension Session Liveness
-
-Server-side Pi extensions with detached work can prevent automatic idle
-session eviction through the versioned global registry:
-
-```js
-const liveness = globalThis[Symbol.for("@agegr/pi-web/session-liveness/v1")];
-const release = liveness?.version === 1
-  ? liveness.register({
-      name: "my-extension",
-      sessionId,
-      sessionFile: sessionFile || undefined,
-      isActive: () => detachedJobs.size > 0,
-    })
-  : () => {};
-```
-
-Register once per active extension session and call the returned idempotent
-`release` function on session shutdown, replacement, or reload. `isActive`
-must be synchronous, cheap, and scoped to the supplied exact session id or
-file. Provider errors fail safe by preserving that session. This lease only
-affects automatic idle eviction; explicit shutdown and Stop fallback cleanup
-still take precedence.
-
-## Development
-
-```bash
-npm install
 npm run dev
 ```
 
-The development server runs at [http://127.0.0.1:30141](http://127.0.0.1:30141). Run the common checks with:
+地址仍为 [http://127.0.0.1:30141](http://127.0.0.1:30141)。如需同时查看桌面界面，在另一个终端运行 `npm run desktop`，它会连接现有开发服务。
+
+**开发服务运行时不要执行 `npm run build`。** 两者共用 `.next/`，构建会干扰开发服务。需要生产构建时，先停止开发服务。
+
+常用检查：
 
 ```bash
 npm test
-node_modules/.bin/tsc --noEmit
+"node_modules/.bin/tsc" --noEmit
 npm run lint
 ```
 
-Do not run `next build` or `npm run build` during normal development. It writes to `.next/` and can interfere with the development server; leave builds for release work.
-
-Before starting on a feature, read [Contributing](./CONTRIBUTING.md) for what is in scope and the pull request checklist.
-
-Contributor guides: [Internationalization](./docs/i18n.md) and [Release process](./docs/release.md).
-
-## Repository Layout
+## 目录
 
 ```text
-app/             Next.js UI and API routes
-components/      React UI components
-hooks/           Client state and interaction hooks
-lib/             Session, agent, model, file, Git, and security logic
-public/          Static assets and PWA files
-bin/             npm CLI entrypoint and launch option parsing
-docs/            Focused user and contributor guides
-demo/            Static browser demo published to GitHub Pages (see demo/README.md)
+app/             Next.js 页面和 API 路由
+components/      React 界面组件
+hooks/           客户端状态和交互
+lib/             pi RPC、会话、模型、文件和 Git 逻辑
+bin/             Web 启动入口和 pi RPC 桥接扩展
+desktop/         Electron 主进程、预加载和打包脚本
+public/          静态资源和 PWA 文件
+docs/            功能说明与开发笔记
+demo/            保留的上游静态演示项目
 ```
 
-See [AGENTS.md](./AGENTS.md) for the architecture notes and detailed file map.
+架构和文件索引见 [AGENTS.md](./AGENTS.md)。
 
-## License
+## 来源与许可证
+
+基于 [agegr/pi-web](https://github.com/agegr/pi-web) 开发，保留上游 Git 历史及原有版权声明。
 
 [MIT](./LICENSE)
