@@ -5,11 +5,6 @@ import { fileURLToPath } from "url";
 
 const configDir = dirname(fileURLToPath(import.meta.url));
 const { version } = JSON.parse(readFileSync(join(configDir, "package.json"), "utf8")) as { version: string };
-let piVersion = "unknown";
-try {
-  const piPkgPath = join(configDir, "node_modules/@earendil-works/pi-coding-agent/package.json");
-  piVersion = (JSON.parse(readFileSync(piPkgPath, "utf8")) as { version: string }).version;
-} catch { /* package not found, use default */ }
 
 // mdast-util-gfm-autolink-literal (remark-gfm) ships a RegExp lookbehind that
 // Safari parses only from 16.4, which blanked `/` on iOS 16.2 (#753). The loader
@@ -30,6 +25,8 @@ const nextConfig: NextConfig = {
   images: { unoptimized: true },
   // `next dev` runs Turbopack and `npm run build` runs webpack.
   turbopack: {
+    // pi is an external CLI; module resolution stays inside this client project.
+    root: configDir,
     rules: {
       "**/mdast-util-gfm-autolink-literal/lib/index.js": { loaders: [gfmAutolinkEmailLoader] },
     },
@@ -103,7 +100,8 @@ const nextConfig: NextConfig = {
   },
   env: {
     NEXT_PUBLIC_APP_VERSION: version,
-    NEXT_PUBLIC_PI_VERSION: piVersion,
+    // The actual runtime version comes from PATH through /api/pi.
+    NEXT_PUBLIC_PI_VERSION: "external",
   },
 };
 

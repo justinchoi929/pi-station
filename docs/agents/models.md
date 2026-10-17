@@ -1,5 +1,9 @@
 # Models and provider auth
 
+## Pi Station runtime authority
+
+`GET /api/models` discovers models in a short-lived, offline, non-persisted PATH CLI process with MCP disabled. Its bridge reads the CLI's available/scoped models and selected defaults. The pinned npm SDK is only a compatibility helper for the remaining settings/file adapters; it must not choose the running chat engine. `/api/pi` reports the executable version at runtime.
+
 ## Model defaults for new sessions
 `GET /api/models` returns `defaultModel` from `~/.pi/agent/settings.json`; `ChatWindow` pre-selects it for new sessions. Browser model/thinking picks are applied atomically while the AgentSession is built and are **session-scoped**: neither startup nor a mid-session `set_model` / `set_thinking_level` writes `settings.json`, as pi's `/model` and `/thinking` persist only on Ctrl+S (otherwise a one-off pick becomes the TUI's default too).
 

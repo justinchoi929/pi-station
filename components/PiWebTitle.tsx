@@ -11,7 +11,7 @@ import { useI18n } from "@/hooks/useI18n";
  * VERSION_SHOWN_MS, or at once on a second click.
  */
 
-export const BRAND_TEXT = "Pi Web";
+export const BRAND_TEXT = "Pi Station";
 /** How long the versions stay, counted from the click that showed them. */
 export const VERSION_SHOWN_MS = 3000;
 /** The text settles left to right over its length times this many frames. */
@@ -88,7 +88,14 @@ export function PiWebTitle({ onWidthChange }: {
   const [versionShown, setVersionShown] = useState(false);
   const revertTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const appVersion = process.env.NEXT_PUBLIC_APP_VERSION;
-  const piVersion = process.env.NEXT_PUBLIC_PI_VERSION;
+  const [piVersion, setPiVersion] = useState("?");
+  useEffect(() => {
+    const controller = new AbortController();
+    void fetch("/api/pi", { signal: controller.signal }).then((response) => response.json()).then((data: { available?: boolean; version?: string }) => {
+      if (data.available && typeof data.version === "string") setPiVersion(data.version);
+    }).catch(() => { /* Keep the unknown marker if pi is unavailable. */ });
+    return () => controller.abort();
+  }, []);
   const text = useScramble(versionShown ? brandVersionText(appVersion, piVersion) : BRAND_TEXT);
 
   useLayoutEffect(() => {

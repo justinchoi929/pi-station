@@ -492,6 +492,7 @@ export function AgentsConfig({
         <div className="agents-feature-copy">
           <strong>{t("agents.builtInTitle")}</strong>
           <span>{t("agents.builtInDescription")}</span>
+          <span role="note">{t("agents.cliRuntimeNotice")}</span>
           {reloadNeeded && <span role="status" className="agents-feature-reload-notice">{t("agents.reloadRequired")}</span>}
         </div>
         <div className="agents-feature-actions">
@@ -508,15 +509,15 @@ export function AgentsConfig({
               min={1}
               max={32}
               value={maxConcurrent}
-              disabled={settingsLoading || settingsSaving}
+              disabled
               onChange={(event) => setMaxConcurrent(Number(event.target.value))}
               onBlur={() => void updateMaxConcurrent(maxConcurrent)}
             />
           </label>
           <ConfigSwitch
             checked={builtInEnabled}
-            disabled={settingsLoading || reloading}
-            loading={settingsSaving}
+            disabled
+            loading={settingsLoading || settingsSaving}
             label={t("agents.builtInTitle")}
             onChange={(enabled) => void toggleBuiltInSubagents(enabled)}
           />

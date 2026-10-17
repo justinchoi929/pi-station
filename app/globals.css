@@ -222,6 +222,60 @@ html[data-theme="ember"],
   --bg-subtle: rgba(245,220,190,0.04);
 }
 
+/* Clay: pi-station's own pair. Warm paper surfaces in small steps and a terracotta
+   accent; every text token reaches WCAG AA (4.5:1) on every surface. */
+[data-theme="clay"] {
+  color-scheme: light;
+  --bg: #faf9f5;
+  --bg-panel: #f3f1ea;
+  --bg-hover: #ebe8df;
+  --bg-selected: #e4e0d4;
+  --border: #dedad0;
+  --text: #2b2a27;
+  --text-muted: #5f5c55;
+  --text-dim: #625f58;
+  --accent: #9e4626;
+  --accent-hover: #86391d;
+  --accent-contrast: #ffffff;
+  --user-bg: #f0ede4;
+  --assistant-bg: #faf9f5;
+  --tool-bg: #f5f3ec;
+  --bg-subtle: rgba(60,40,20,0.04);
+}
+
+html[data-theme="clay-dark"],
+[data-theme="clay-dark"] {
+  color-scheme: dark;
+  --bg: #262624;
+  --bg-panel: #1f1e1c;
+  --bg-hover: #30302d;
+  --bg-selected: #3a3936;
+  --border: #42413d;
+  --text: #ecebe6;
+  --text-muted: #c3c0b6;
+  --text-dim: #b1aea4;
+  --accent: #e6977a;
+  --accent-hover: #eeb09a;
+  --accent-contrast: #2a160d;
+  --user-bg: #33322f;
+  --assistant-bg: #262624;
+  --tool-bg: #2b2a27;
+  --bg-subtle: rgba(255,240,220,0.04);
+  --composer-shadow: 0 1px 0 rgba(0,0,0,0.25), 0 6px 20px -8px rgba(0,0,0,0.45);
+}
+
+/* Clay's shapes: a softer composer and user bubble, borderless bubbles on warm fills.
+   Other themes keep the defaults written beside each var() use. */
+[data-theme="clay"],
+[data-theme="clay-dark"] {
+  --composer-radius: 20px;
+  --composer-border: var(--border);
+  --composer-shadow: 0 1px 0 rgba(60,40,20,0.04), 0 6px 20px -8px rgba(60,40,20,0.14);
+  --send-button-radius: 10px;
+  --user-bubble-radius: 18px;
+  --user-bubble-border: 1px solid transparent;
+}
+
 /* High contrast: every text token reaches WCAG AAA (7:1) on every surface. */
 [data-theme="contrast-light"] {
   color-scheme: light;
@@ -2745,4 +2799,22 @@ span.token.table {
   html[data-keyboard-open] .new-session-context {
     display: none !important;
   }
+}
+
+/* pi-station desktop on macOS: the window hides its title bar and draws the traffic
+   lights over the left end of the 36px top bars (desktop/preload.cjs sets the
+   attribute). The bars drag the window; their controls stay clickable. */
+html[data-desktop="mac"] .sidebar-header,
+html[data-desktop="mac"] .app-top-bar {
+  -webkit-app-region: drag;
+}
+
+html[data-desktop="mac"] .sidebar-header :is(button, a, input, select, [role="button"], [role="tab"]),
+html[data-desktop="mac"] .app-top-bar :is(button, a, input, select, [role="button"], [role="tab"]) {
+  -webkit-app-region: no-drag;
+}
+
+html[data-desktop="mac"] .sidebar-header,
+html[data-desktop="mac"]:has(.sidebar-container.sidebar-closed) .app-top-bar {
+  padding-left: 76px;
 }

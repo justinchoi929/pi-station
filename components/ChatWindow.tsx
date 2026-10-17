@@ -1491,7 +1491,7 @@ export function ChatWindow({ session, searchTarget, onSearchTargetHandled, initi
               <div className="new-session-brand">
                 <Image src="/icons/apple-touch-icon.png" width={40} height={40} alt="" priority className="new-session-logo" />
                 <div className="new-session-brand-text">
-                  <span className="new-session-brand-name">Pi Web</span>
+                  <span className="new-session-brand-name">Pi Station</span>
                   <span className="new-session-meta">
                     <span>web v{process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0"}</span>
                     <NewSessionUpdateLink label={(version) => t("appUpdate.releaseNotes", { version })} />

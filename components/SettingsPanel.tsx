@@ -3,7 +3,7 @@
 import { useEffect, useLayoutEffect, useRef, useState, type ReactNode } from "react";
 import { useI18n } from "@/hooks/useI18n";
 import { useTheme } from "@/hooks/useTheme";
-import { THEME_OPTIONS } from "@/lib/theme";
+import { SYSTEM_THEMES, THEME_OPTIONS } from "@/lib/theme";
 import {
   CHAT_CONTENT_WIDTH_DEFAULT,
   CHAT_CONTENT_WIDTH_MAX,
@@ -235,8 +235,8 @@ function GeneralSettings({ sessionId, onSessionReloaded, quoteSelectionEnabled, 
                     palette: a neutral tile with a light and a dark chip beside its name. */}
                 {option.id === "auto" ? (
                   <span className="settings-theme-swatch settings-theme-system" aria-hidden="true">
-                    <span data-theme="light" className="settings-theme-chip" />
-                    <span data-theme="dark" className="settings-theme-chip" />
+                    <span data-theme={SYSTEM_THEMES.light} className="settings-theme-chip" />
+                    <span data-theme={SYSTEM_THEMES.dark} className="settings-theme-chip" />
                     <span className="settings-theme-system-name">{t(option.label)}</span>
                   </span>
                 ) : (

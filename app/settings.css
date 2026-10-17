@@ -1603,14 +1603,14 @@
   margin: 6px 0 0;
 }
 
-/* Fifteen columns: System spans the first row; then five light themes and five dark ones
-   (three columns each), and a row of three wide tiles (five columns each). */
+/* Eighteen columns: System spans the first row; then six light themes and six dark ones
+   (three columns each), and a row of three wide tiles (six columns each). */
 .settings-theme-options {
   display: grid;
-  grid-template-columns: repeat(15, minmax(0, 1fr));
+  grid-template-columns: repeat(18, minmax(0, 1fr));
   grid-auto-rows: 40px;
   gap: 10px;
-  max-width: 428px;
+  max-width: 512px;
   padding: 4px;
 }
 
@@ -1628,7 +1628,7 @@
 }
 
 .settings-theme-option[data-wide] {
-  grid-column: span 5;
+  grid-column: span 6;
 }
 
 .settings-theme-swatch {

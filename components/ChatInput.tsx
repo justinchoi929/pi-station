@@ -2248,10 +2248,10 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
               background: "var(--bg)",
               border: compact ? "none" : `1px solid ${bashMode ? "var(--tool-bg)" : isStreaming && (onSteer || onFollowUp)
                 ? "rgba(234,179,8,0.4)"
-                : "color-mix(in srgb, var(--border) 70%, transparent)"}`,
-              borderRadius: compact ? 0 : 14,
+                : "var(--composer-border, color-mix(in srgb, var(--border) 70%, transparent))"}`,
+              borderRadius: compact ? 0 : "var(--composer-radius, 14px)",
               padding: compact ? 0 : isMobile ? "6px 6px 6px 12px" : "10px 10px 10px 14px",
-              boxShadow: compact ? "none" : "0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10)",
+              boxShadow: compact ? "none" : "var(--composer-shadow, 0 1px 2px rgba(15,23,42,0.04), 0 8px 24px -12px rgba(15,23,42,0.10))",
               transition: "border-color 0.15s, background 0.15s, box-shadow 0.15s",
             } as React.CSSProperties}
           >
@@ -2372,7 +2372,7 @@ export const ChatInput = memo(forwardRef<ChatInputHandle, Props>(function ChatIn
                 ...(isMobile ? { width: 36, height: 36, padding: 0 } : { padding: "7px 14px" }),
                 background: (value.trim() || attachedImages.length) ? "var(--accent)" : "var(--bg-panel)",
                 border: "none",
-                borderRadius: 8,
+                borderRadius: "var(--send-button-radius, 8px)",
                 color: (value.trim() || attachedImages.length) ? "var(--accent-contrast)" : "var(--text-dim)",
                 cursor: (value.trim() || attachedImages.length) ? "pointer" : "not-allowed",
                 fontSize: 13,

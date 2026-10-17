@@ -1,5 +1,6 @@
+import { PiCliSession } from "./pi-cli-session";
 import type { ThinkingLevel } from "@earendil-works/pi-agent-core";
-import { createAgentSessionFromServices, createAgentSessionServices, getAgentDir, initTheme, SessionManager, SettingsManager, Theme, type ModelRuntime } from "@earendil-works/pi-coding-agent";
+import { getAgentDir, SessionManager, Theme, type ModelRuntime } from "@earendil-works/pi-coding-agent";
 import { KeybindingsManager as TuiKeybindingsManager, TUI_KEYBINDINGS } from "@earendil-works/pi-tui";
 import { randomUUID } from "crypto";
 import { existsSync, realpathSync, writeFileSync } from "fs";
@@ -7,16 +8,11 @@ import { resolve } from "path";
 import { validateAgentImages } from "./image-attachments";
 import { invalidateModelsCache } from "./models-cache";
 import { invalidateModelRuntimeWithExtensions } from "./model-runtime";
-import { resolveVisibleModels, selectInitialModelScope } from "./model-scope";
-import { findDeferredModel, findDeferredStartupModel, rememberProviderModels } from "./deferred-provider-models";
+import { findDeferredModel } from "./deferred-provider-models";
 import { isBlockingExtensionUiRequest } from "./extension-ui-queue";
-import {
-  createProjectCommandBashExtension,
-  createProjectCommandBashOperations,
-  preferUserBashExtension,
-} from "./project-command-env";
-import { cacheSessionPath, catalogFirstMessage, getLatestModelChange, invalidateSessionListCache, readLatestSessionEntryId, resolveSessionPath } from "./session-reader";
-import { getProjectTrustStatus, projectTrustReloadOptions } from "./project-trust";
+import { createProjectCommandBashOperations } from "./project-command-env";
+import { cacheSessionPath, catalogFirstMessage, invalidateSessionListCache, readLatestSessionEntryId, resolveSessionPath } from "./session-reader";
+import { getProjectTrustStatus } from "./project-trust";
 import { notifySessionComplete } from "./web-push";
 import { hasActiveSessionLivenessProvider } from "./session-liveness";
 import type { SlashCommandInfo } from "@earendil-works/pi-coding-agent";
@@ -31,28 +27,14 @@ import type {
 } from "./types";
 import { createHeadlessCustomUiTui, DEFAULT_CUSTOM_UI_COLUMNS, type HeadlessCustomUiTui } from "./custom-ui-terminal";
 import {
-  createSubagentExtension,
-  preferPiWebSubagentExtension,
-} from "./subagent-extension";
-import {
-  listSubagentProfiles,
   hasSubagentResourceSnapshot,
   readSubagentRun,
   readSubagentSessionResources,
-  subagentExtensionLoaderOptions,
-  subagentToolOptions,
   SUBAGENT_CONTROL_TOOL_NAMES,
 } from "./subagents";
-import { createSubagentController } from "./subagent-runtime";
-import { isBuiltInSubagentsEnabled } from "./subagent-settings";
 import { resolveShellTools } from "./powershell-settings";
-import { CHAT_ONLY_RESOURCE_LOADER_OPTIONS, contextFilesSystemPrompt } from "./chat-only";
-import { createExactSystemPromptExtension } from "./exact-system-prompt";
-import { createPiWebBuiltinExtensions, createSubagentCodemodeExtension, createSubagentMcpExtensions } from "./builtin-extensions";
 import type { McpHost } from "./mcp-host";
 import { mcpPromptPreparation, type McpCommandCandidate } from "./mcp-command";
-import { createReadOnlyMcpPolicyExtension, createSubagentMcpPolicyExtension } from "./mcp-read-only-policy";
-import { createSubagentSkillsBinding } from "./subagent-skills";
 import { isNestedToolExecutionEvent } from "./agent-event-wire";
 import { collectLiveAssistantNotices, readShowCacheMissNotices, withSessionPrices } from "./transcript-notices-server";
 import {
@@ -227,7 +209,6 @@ export interface RpcSessionStartOptions {
 const CODING_TOOL_NAMES = ["read", "bash", "powershell", "edit", "write", "grep", "find", "ls"];
 const THINKING_LEVEL_NAMES = new Set<ThinkingLevel>(["off", "minimal", "low", "medium", "high", "xhigh", "max"]);
 // The SDK's DEFAULT_THINKING_LEVEL (dist/core/defaults.js), which it does not export.
-const SDK_DEFAULT_THINKING_LEVEL: ThinkingLevel = "medium";
 
 // Extensions require a complete Theme, while the web UI applies its own styling.
 class PlainTextTheme extends Theme {
@@ -2073,12 +2054,14 @@ export class AgentSessionWrapper {
 // ============================================================================
 
 declare global {
-  var __piSessions: Map<string, AgentSessionWrapper> | undefined;
-  var __piStartLocks: Map<string, Promise<{ session: AgentSessionWrapper; realSessionId: string }>> | undefined;
+  var __piSessions: Map<string, RpcSessionWrapper> | undefined;
+  var __piStartLocks: Map<string, Promise<{ session: RpcSessionWrapper; realSessionId: string }>> | undefined;
   var __piStartingSessionCwds: Map<string, number> | undefined;
 }
 
-function getRegistry(): Map<string, AgentSessionWrapper> {
+export type RpcSessionWrapper = AgentSessionWrapper | PiCliSession;
+
+function getRegistry(): Map<string, RpcSessionWrapper> {
   if (!globalThis.__piSessions) {
     globalThis.__piSessions = new Map();
     const destroy = () => globalThis.__piSessions?.forEach((session) => session.destroy());
@@ -2095,7 +2078,7 @@ function getRegistry(): Map<string, AgentSessionWrapper> {
   return globalThis.__piSessions;
 }
 
-function registerRpcWrapper(wrapper: AgentSessionWrapper): void {
+function registerRpcWrapper(wrapper: RpcSessionWrapper): void {
   const registry = getRegistry();
   const sessionId = wrapper.sessionId;
   if (wrapper.sessionFile) cacheSessionPath(sessionId, wrapper.sessionFile);
@@ -2115,46 +2098,36 @@ function registerRpcWrapper(wrapper: AgentSessionWrapper): void {
   if (!wrapper.isChatOnly()) wrapper.beginExtensionBinding();
 }
 
-const SUBAGENT_CONTROLLER = createSubagentController({
-  getSession: (sessionId) => getRegistry().get(sessionId),
-  registerSession: (inner, options) => {
-    const wrapper = new AgentSessionWrapper(inner, {
-      ...(options?.exactSystemPrompt !== undefined
-        ? { exactSystemPrompt: options.exactSystemPrompt }
-        : {}),
-      chatOnly: options?.chatOnly,
-      suppressCompletionNotifications: true,
-      ...(options?.mcpHost ? { mcpHost: options.mcpHost } : {}),
-    });
-    registerRpcWrapper(wrapper);
-    return wrapper;
-  },
-  reopenSession: async (sessionId, sessionFile) =>
-    (await startRpcSession(sessionId, sessionFile, undefined)).session,
-  resolveSessionPath,
-  invalidateSessionList: invalidateSessionListCache,
-  isBuiltInSubagentsEnabled,
-});
-
-export function getSubagentRun(sessionId: string) {
-  return SUBAGENT_CONTROLLER.get(sessionId);
+export async function getSubagentRun(sessionId: string) {
+  const wrapper = getRpcSession(sessionId);
+  const filePath = wrapper?.sessionFile || await resolveSessionPath(sessionId);
+  if (!filePath) return null;
+  const entries = wrapper?.inner.sessionManager.getEntries() ?? SessionManager.open(filePath).getEntries();
+  const run = readSubagentRun(entries as unknown as SessionEntry[], sessionId, filePath);
+  return run && wrapper?.isRunning() ? { ...run, status: "running" as const } : run;
 }
 
-export function steerSubagent(sessionId: string, message: string) {
-  return SUBAGENT_CONTROLLER.steer(sessionId, message);
+export async function steerSubagent(sessionId: string, message: string) {
+  const session = getRpcSession(sessionId);
+  if (!session?.isRunning()) throw new Error("Subagent is not running");
+  if (session instanceof PiCliSession) await session.send({ type: "steer", message: message.trim() });
+  else await session.inner.steer(message.trim());
 }
 
-export function abortSubagent(sessionId: string) {
-  return SUBAGENT_CONTROLLER.abort(sessionId);
+export async function abortSubagent(sessionId: string) {
+  const session = getRpcSession(sessionId);
+  if (!session?.isRunning()) throw new Error("Subagent is not running");
+  if (session instanceof PiCliSession) await session.send({ type: "abort" });
+  else await session.inner.abort();
 }
 
-function getLocks(): Map<string, Promise<{ session: AgentSessionWrapper; realSessionId: string }>> {
+function getLocks(): Map<string, Promise<{ session: RpcSessionWrapper; realSessionId: string }>> {
   if (!globalThis.__piStartLocks) globalThis.__piStartLocks = new Map();
   return globalThis.__piStartLocks;
 }
 
 const CLOSING_SESSION_WAIT_MARGIN_MS = 1_000;
-const closingSessionWaits = new WeakMap<AgentSessionWrapper, { done: boolean; promise: Promise<void> }>();
+const closingSessionWaits = new WeakMap<RpcSessionWrapper, { done: boolean; promise: Promise<void> }>();
 
 /**
  * The wait for a wrapper of `sessionId` that is shutting down, or null when there is none
@@ -2209,12 +2182,12 @@ function trackStartingSession(cwd: string): () => void {
   };
 }
 
-export function getRpcSession(sessionId: string): AgentSessionWrapper | undefined {
+export function getRpcSession(sessionId: string): RpcSessionWrapper | undefined {
   return getRegistry().get(sessionId);
 }
 
 export interface SetRpcSessionToolsResult {
-  session: AgentSessionWrapper;
+  session: RpcSessionWrapper;
   sessionId: string;
   recreated: boolean;
 }
@@ -2234,6 +2207,30 @@ export async function setRpcSessionTools(
     ? undefined
     : validateSessionToolSelection(requestedToolNames);
   const existing = getRpcSession(sessionId);
+
+  if (existing instanceof PiCliSession && existing.isAlive()) {
+    if (existing.isRunning()) throw new Error("Cannot change tools while the session is running");
+    if (toolNames !== undefined && existing.isChatOnly() === (toolNames.length === 0)) {
+      await existing.send({ type: "set_tools", toolNames });
+      return { session: existing, sessionId, recreated: false };
+    }
+    const persistedFile = existing.sessionFile && existsSync(existing.sessionFile) ? existing.sessionFile : "";
+    const sessionCwd = existing.cwd;
+    const state = await existing.send({ type: "get_state" }) as { model?: { provider: string; id: string }; thinkingLevel?: ThinkingLevel };
+    await existing.shutdown();
+    if (persistedFile) {
+      const manager = SessionManager.open(persistedFile);
+      if (toolNames === undefined) appendClearedSessionToolSelection(manager);
+      else appendSessionToolSelection(manager, toolNames);
+    }
+    const started = await startRpcSession(sessionId, persistedFile, sessionCwd, {
+      toolNames,
+      ...(state.model ? { initialModel: { provider: state.model.provider, modelId: state.model.id } } : {}),
+      thinkingLevel: state.thinkingLevel,
+    });
+    invalidateSessionListCache();
+    return { session: started.session, sessionId: started.realSessionId, recreated: true };
+  }
 
   if (!existing?.isAlive()) {
     if (!sessionFile) throw new Error("Session not found");
@@ -2256,6 +2253,7 @@ export async function setRpcSessionTools(
     return { session: started.session, sessionId: started.realSessionId, recreated: false };
   }
 
+  if (existing instanceof PiCliSession) throw new Error("pi session is closed");
   if (existing.isRunning()) throw new Error("Cannot change tools while the session is running");
   if (readSubagentSessionResources(existing.inner.sessionManager.getEntries() as unknown as SessionEntry[])) {
     throw new Error("Subagent tool selection is fixed by its profile");
@@ -2437,8 +2435,8 @@ export async function startRpcSession(
   sessionFile: string,
   cwd: string | undefined,
   options: RpcSessionStartOptions = {},
-): Promise<{ session: AgentSessionWrapper; realSessionId: string }> {
-  const { initialModel, allowInitialModelFallback, thinkingLevel } = options;
+): Promise<{ session: RpcSessionWrapper; realSessionId: string }> {
+  const { initialModel, thinkingLevel } = options;
   const requestedToolNames = options.toolNames === undefined
     ? undefined
     : validateSessionToolSelection(options.toolNames);
@@ -2454,7 +2452,7 @@ export async function startRpcSession(
   const closingWait = closingRpcSessionWait(sessionId);
   if (closingWait) {
     // Concurrent starts share this lock, then the one start that follows it.
-    const waiting: Promise<{ session: AgentSessionWrapper; realSessionId: string }> = closingWait.then(() => {
+    const waiting: Promise<{ session: RpcSessionWrapper; realSessionId: string }> = closingWait.then(() => {
       if (locks.get(sessionId) === waiting) locks.delete(sessionId);
       return startRpcSession(sessionId, sessionFile, cwd, options);
     });
@@ -2462,296 +2460,39 @@ export async function startRpcSession(
     return waiting;
   }
 
-  let sessionManager: SessionManager;
-  if (sessionFile) {
-    sessionManager = SessionManager.open(sessionFile, undefined);
-  } else {
-    if (!cwd) throw new Error("cwd is required for a new session");
-    sessionManager = SessionManager.create(cwd, undefined);
-  }
-  const sessionCwd = sessionManager.getCwd();
-  const sessionEntries = sessionManager.getEntries() as unknown as SessionEntry[];
-  const hasPersistedSubagentSnapshot = sessionFile && hasSubagentResourceSnapshot(sessionEntries);
-  const subagentResources = sessionFile
-    ? readSubagentSessionResources(sessionEntries)
-    : null;
-  if (hasPersistedSubagentSnapshot && !subagentResources) {
+  const manager = sessionFile ? SessionManager.open(sessionFile) : undefined;
+  const sessionCwd = manager?.getCwd() ?? cwd;
+  if (!sessionCwd) throw new Error("cwd is required for a new session");
+  const entries = manager?.getEntries() as unknown as SessionEntry[] | undefined;
+  if (entries && hasSubagentResourceSnapshot(entries) && !readSubagentSessionResources(entries)) {
     throw new Error("Invalid subagent resource snapshot");
   }
-  const persistedToolNames = subagentResources
-    ? undefined
-    : readSessionToolSelection(sessionEntries);
-  const selectedToolNames = subagentResources?.tools ?? persistedToolNames ?? requestedToolNames;
-  if (!subagentResources && persistedToolNames === undefined && requestedToolNames !== undefined) {
-    appendSessionToolSelection(sessionManager, requestedToolNames);
+  if (entries && readSubagentSessionResources(entries)) {
+    throw new Error("Legacy Pi Web subagent sessions are read-only in CLI mode. Start a normal session to continue.");
   }
-  const subagentLoadsResources = Boolean(
-    subagentResources?.loadExtensions || subagentResources?.loadSkills || subagentResources?.codemode || subagentResources?.mcp,
-  );
-  const chatOnly = selectedToolNames?.length === 0 && !subagentLoadsResources;
+  const selectedToolNames = requestedToolNames ?? (entries ? readSessionToolSelection(entries) : undefined);
   const finishStartingSession = trackStartingSession(sessionCwd);
-  const starting = (async () => {
-    // Some extensions access the SDK's global theme even outside the terminal UI.
-    if (!chatOnly) initTheme();
-    const agentDir = getAgentDir();
-
-    // Determine which tools to pass based on requested toolNames.
-    // Since v0.68.0, session creation expects string[] tool names instead of Tool[] instances.
-    // A subagent's tools come from its snapshot (subagentToolOptions() below).
-    let toolsOption: string[] | undefined;
-    if (!subagentResources && selectedToolNames !== undefined) {
-      // toolNames === [] -> "all off" (an empty allow-list disables every tool).
-      // Otherwise DO NOT pass a builtin-only allow-list: passing CODING_TOOL_NAMES
-      // set allowedToolNames to coding builtins only, which filtered every
-      // extension/package-provided tool (e.g. subagents, web access) out of the
-      // tool registry — so they were unavailable in Pi Web sessions even though the
-      // `pi` CLI keeps them. Leaving the allow-list unset lets the SDK register all
-      // tools (and activate extension tools); we narrow the ACTIVE set below.
-      toolsOption = selectedToolNames.length === 0 ? [] : undefined;
-    }
-
-    // Build services first so extension-registered providers are available
-    // before the SDK restores the saved model from the session file.
-    // Gate untrusted project extensions so opening a repository does not run
-    // its .pi/extensions code automatically (see lib/project-trust.ts, #236).
-    const trustReloadOptions = subagentResources
-      ? subagentLoadsResources
-        ? projectTrustReloadOptions(sessionCwd, agentDir)
-        : undefined
-      : chatOnly
-        ? undefined
-        : projectTrustReloadOptions(sessionCwd, agentDir);
-    const settingsManager = SettingsManager.create(sessionCwd, agentDir);
-    // Chat-only sessions and subagents that replace Pi's prompt send an exact
-    // system prompt. The prompt is resolved at prompt time through this inline
-    // extension: it may read the session's context files, which exist only
-    // after the session is created, so the getter is filled in below.
-    const exactSystemPromptRef: { current?: () => string } = {};
-    const exactSystemPromptExtension = createExactSystemPromptExtension(() => exactSystemPromptRef.current?.());
-    // codemode, tool-search, and mcp, as the pi CLI loads them, and the host that decides
-    // which MCP servers the session connects (ADR 0006).
-    const builtins = subagentResources || chatOnly
-      ? undefined
-      : await createPiWebBuiltinExtensions({ agentDir });
-    const subagentCodemode = subagentResources?.codemode
-      ? await createSubagentCodemodeExtension({
-          agentDir,
-          cwd: sessionCwd,
-          projectTrusted: () => settingsManager.isProjectTrusted(),
-        })
-      : undefined;
-    const subagentMcp = subagentResources?.mcp
-      ? await createSubagentMcpExtensions({
-          agentDir,
-          cwd: sessionCwd,
-          projectTrusted: () => settingsManager.isProjectTrusted(),
-          codemode: subagentResources.codemode === true,
-        })
-      : undefined;
-    const skillsBinding = subagentResources ? createSubagentSkillsBinding({
-      loadSkills: subagentResources.loadSkills,
-      skills: subagentResources.skills,
-      exactSystemPrompt: subagentResources.exactSystemPrompt
-        ?? (chatOnly ? subagentResources.appendSystemPrompt[0] ?? "" : undefined),
-    }) : undefined;
-    const subagentExtensionFactories = [
-      ...(subagentCodemode ? [subagentCodemode] : []),
-      ...(subagentMcp && subagentResources
-        ? [...subagentMcp.extensions, createSubagentMcpPolicyExtension(() => subagentResources)]
-        : []),
-      ...(skillsBinding?.loaderOptions.extensionFactories ?? []),
-    ];
-    const services = await createAgentSessionServices({
-      cwd: sessionCwd,
-      agentDir,
-      settingsManager,
-      resourceLoaderOptions: subagentResources
-        ? {
-            ...subagentExtensionLoaderOptions(subagentResources),
-            ...skillsBinding!.loaderOptions,
-            ...(subagentExtensionFactories.length > 0 ? { extensionFactories: subagentExtensionFactories } : {}),
-            noPromptTemplates: true,
-            noThemes: true,
-            noContextFiles: true,
-            ...(chatOnly
-              ? {
-                  systemPrompt: " ",
-                  systemPromptOverride: () => undefined,
-                }
-              : {}),
-            appendSystemPrompt: subagentResources.appendSystemPrompt,
-          }
-        : chatOnly
-          ? { ...CHAT_ONLY_RESOURCE_LOADER_OPTIONS, extensionFactories: [exactSystemPromptExtension] }
-        : {
-            extensionFactories: [
-              ...(builtins?.extensions ?? []),
-              createReadOnlyMcpPolicyExtension(),
-              createProjectCommandBashExtension({
-                cwd: sessionCwd,
-                settings: settingsManager,
-              }),
-              createSubagentExtension(
-                SUBAGENT_CONTROLLER.extensionRuntime,
-                () => listSubagentProfiles(sessionCwd),
-                isBuiltInSubagentsEnabled,
-              ),
-            ],
-            extensionsOverride: (base) => preferUserBashExtension(preferPiWebSubagentExtension(base)),
-          },
-      ...(trustReloadOptions ? { resourceLoaderReloadOptions: trustReloadOptions } : {}),
-    });
-    if (subagentResources?.codemode
-      && !services.resourceLoader.getExtensions().extensions.some((extension) => extension.tools.has("codemode"))) {
-      throw new Error("Code mode is unavailable: builtin:codemode was not registered");
-    }
-    const enabledModels = services.settingsManager.getEnabledModels();
-    const scope = await resolveVisibleModels(services.modelRuntime, enabledModels);
-    // A provider an extension registers only at session_start (lib/deferred-provider-models.ts)
-    // has no model in this runtime yet: build on the default, switch once extensions are bound.
-    const deferredInitialModel = initialModel && !services.modelRuntime.getModel(initialModel.provider, initialModel.modelId)
-      ? findDeferredModel(services.modelRuntime, initialModel.provider, initialModel.modelId)
-      : undefined;
-    // Chat only loads no extensions, so that switch never comes: refuse the model the browser chose.
-    if (chatOnly && deferredInitialModel && !allowInitialModelFallback) {
-      throw chatOnlyExtensionModelError(deferredInitialModel.provider, deferredInitialModel.id);
-    }
-    const effectiveInitialModel = initialModel && !deferredInitialModel && (
-      !allowInitialModelFallback
-      || scope.visible.some((model) => model.provider === initialModel.provider && model.id === initialModel.modelId)
-    )
-      ? initialModel
-      : undefined;
-    const defaultProvider = services.settingsManager.getDefaultProvider();
-    const defaultModelId = services.settingsManager.getDefaultModel();
-    const defaultModel = defaultProvider && defaultModelId
-      ? { provider: defaultProvider, modelId: defaultModelId }
-      : undefined;
-    const branch = sessionManager.getBranch();
-    // System messages carry the prompt and tool loadout, not a conversation.
-    const hasExistingMessages = branch.some((entry) => entry.type === "message" && entry.message.role !== "system");
-    const savedModel = hasExistingMessages
-      ? getLatestModelChange(branch as unknown as SessionEntry[])
-      : null;
-    const restoredModel = savedModel
-      ? services.modelRuntime.getModel(savedModel.provider, savedModel.modelId)
-      : undefined;
-    const initial = hasExistingMessages ? null : selectInitialModelScope(scope, {
-        ...(effectiveInitialModel ? { requestedModel: effectiveInitialModel } : {}),
-        ...(defaultModel ? { defaultModel } : {}),
-        ...(thinkingLevel ? { thinkingLevel } : {}),
+  const starting = PiCliSession.create({
+    cwd: sessionCwd,
+    sessionFile: sessionFile || undefined,
+    ...(!sessionFile && !sessionId.startsWith("__new__") ? { sessionId } : {}),
+    toolNames: selectedToolNames,
+    initialModel,
+    thinkingLevel,
+    idleTimeoutMs: SESSION_IDLE_TIMEOUT_MS,
+    shutdownDeadlineMs: SESSION_SHUTDOWN_DEADLINE_MS,
+    onComplete: (completedSessionId, sessionName) => {
+      void notifySessionComplete(completedSessionId, sessionName).catch((error: unknown) => {
+        console.error("[pi-station] failed to send completion push:", error instanceof Error ? error.message : error);
       });
-    const startupModel = restoredModel && services.modelRuntime.hasConfiguredAuth(restoredModel.provider)
-      ? restoredModel
-      : initial?.model;
-    // A registered default the session starts on is in scope with deferred models counted too
-    // (globs and exact entries only gain matches), unless the scope fell back to every model.
-    const startsOnDefault = Boolean(initial?.model && defaultModel
-      && initial.model.provider === defaultModel.provider && initial.model.id === defaultModel.modelId
-      && (scope.scopedModels.length > 0 || !enabledModels?.some((pattern) => pattern.trim())));
-    // pi's pick with deferred providers counted in, as /api/models shows it (#1240): a deferred
-    // model asked for gets its enabledModels pin; with no usable model asked for, the browser shows
-    // that pick and sends none, so a deferred pick is switched to as well.
-    const deferredStartup = !hasExistingMessages && !chatOnly && (deferredInitialModel || (!effectiveInitialModel && !startsOnDefault))
-      ? await findDeferredStartupModel(services.modelRuntime, enabledModels, deferredInitialModel
-        ? { requestedModel: { provider: deferredInitialModel.provider, modelId: deferredInitialModel.id } }
-        : defaultModel ? { defaultModel } : {})
-      : undefined;
-    const deferredModel = hasExistingMessages
-      ? savedModel && !restoredModel
-        ? findDeferredModel(services.modelRuntime, savedModel.provider, savedModel.modelId)
-        : undefined
-      : deferredInitialModel ?? deferredStartup?.model;
-    // set_model applies the model's modelThinkingLevels entry, else defaultThinkingLevel, else keeps
-    // the current level: the stand-in model's (clamped, or its own pin). Apply what pi's
-    // createAgentSession gives this model at startup instead: a resumed session's last saved level,
-    // else the default; a new one's requested level, else the model's enabledModels pin, its
-    // modelThinkingLevels entry, else the default.
-    const deferredThinkingLevel = !deferredModel
-      ? undefined
-      : hasExistingMessages
-        ? (branch.findLast((entry) => entry.type === "thinking_level_change")?.thinkingLevel as ThinkingLevel | undefined)
-          ?? services.settingsManager.getDefaultThinkingLevel()
-          ?? SDK_DEFAULT_THINKING_LEVEL
-        : thinkingLevel
-          ?? deferredStartup?.thinkingLevelPin
-          ?? services.settingsManager.getModelThinkingLevel(deferredModel.provider, deferredModel.id)
-          ?? services.settingsManager.getDefaultThinkingLevel()
-          ?? SDK_DEFAULT_THINKING_LEVEL;
-    // The extension's model a Chat-only session wanted (saved, chosen or default); a prompt names
-    // it when the session ended up with no model at all.
-    const chatOnlyExtensionModel = chatOnly
-      ? deferredModel ?? (!hasExistingMessages && defaultProvider && defaultModelId
-        ? findDeferredModel(services.modelRuntime, defaultProvider, defaultModelId)
-        : undefined)
-      : undefined;
-    const { session: inner } = await createAgentSessionFromServices({
-      services,
-      sessionManager,
-      ...(startupModel ? { model: startupModel } : {}),
-      ...(initial?.thinkingLevel ? { thinkingLevel: initial.thinkingLevel } : {}),
-      ...(scope.scopedModels.length > 0 ? { scopedModels: [...scope.scopedModels] } : {}),
-      ...(subagentResources
-        ? subagentToolOptions(subagentResources)
-        : toolsOption !== undefined ? { tools: toolsOption } : {}),
-    });
-
-    // A pinned selection replaces only the coding tools of the SDK's initial loadout, which
-    // already holds the extension tools pi activates on registration and whatever
-    // `defaultTools` names (such as `+codemode`), so installed extensions stay usable in
-    // Pi Web just like in the `pi` CLI.
-    if (!subagentResources && !chatOnly) {
-      const initialToolNames = inner.getActiveToolNames();
-      inner.setActiveToolsByName(
-        resolveActiveToolNames(inner, selectedToolNames ?? initialToolNames, initialToolNames),
-      );
-    }
-
-    skillsBinding?.setActiveToolsGetter(() => inner.getActiveToolNames());
-    const exactSystemPrompt = subagentResources
-      ? skillsBinding!.getExactSystemPrompt
-      : chatOnly
-        ? () => contextFilesSystemPrompt(inner.resourceLoader.getAgentsFiles().agentsFiles)
-        : undefined;
-    exactSystemPromptRef.current = exactSystemPrompt;
-    const mcpHost = builtins?.mcpHost ?? subagentMcp?.mcpHost;
-    const wrapper = new AgentSessionWrapper(inner, {
-      exactSystemPrompt,
-      chatOnly,
-      onAgentRunComplete: (completedSessionId, sessionName) => {
-        void notifySessionComplete(completedSessionId, sessionName).catch((error) => {
-          console.error("[pi-web] failed to send completion push:", error instanceof Error ? error.message : error);
-        });
-      },
-      suppressCompletionNotifications: Boolean(subagentResources),
-      ...(mcpHost ? { mcpHost } : {}),
-      ...(chatOnlyExtensionModel ? { chatOnlyExtensionModel } : {}),
-    });
-    const realSessionId = inner.sessionId as string;
+    },
+  }).then((wrapper) => {
     registerRpcWrapper(wrapper);
-
-    if (!chatOnly) {
-      if (deferredModel) {
-        try {
-          await wrapper.waitUntilReady();
-          await wrapper.send({ type: "set_model", provider: deferredModel.provider, modelId: deferredModel.id });
-          if (deferredThinkingLevel) await wrapper.send({ type: "set_thinking_level", level: deferredThinkingLevel });
-        } catch (error) {
-          console.error(`[pi-web] could not switch to ${deferredModel.provider}/${deferredModel.id}:`, error instanceof Error ? error.message : error);
-        }
-      }
-      // Bound extensions may have registered providers a later model listing will not see.
-      void wrapper.waitUntilReady()
-        .then(() => rememberProviderModels(inner.modelRuntime as ModelRuntime))
-        .catch(() => undefined);
-    }
-
-    return { session: wrapper, realSessionId };
-  })().finally(() => {
+    return { session: wrapper, realSessionId: wrapper.sessionId };
+  }).finally(() => {
     locks.delete(sessionId);
     finishStartingSession();
   });
-
   locks.set(sessionId, starting);
   return starting;
 }

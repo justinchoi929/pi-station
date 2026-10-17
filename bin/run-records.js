@@ -73,12 +73,13 @@ function readProcessCommand(pid, { platform = process.platform, run = spawnSync,
 // Whether pid still is the launcher or the Next.js server of a record. After a
 // crash or a reboot the pid may belong to an unrelated process, which stop must
 // never signal. Next.js renames its process to "next-server (vX)". Windows only
-// gives the image name. When nothing can tell, the URL check alone decides.
+// gives the image name. When nothing can tell, the URL check alone decides. A
+// launcher runs as bin/pi-web.js or as the pi-station bin linked to it.
 function isRecordProcess(pid, role, { platform = process.platform, readCommand = readProcessCommand } = {}) {
   const command = readCommand(pid, { platform });
   if (command === null) return true;
   if (platform === "win32") return /^node/i.test(command);
-  return role === "launcher" ? command.includes("pi-web") : command.includes("next");
+  return role === "launcher" ? /pi-web|pi-station/.test(command) : command.includes("next");
 }
 
 function recordPath(dir, pid) {

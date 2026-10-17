@@ -1,5 +1,11 @@
 # Sessions, branching and live events
 
+## Pi Station CLI execution
+
+Normal `startRpcSession()` starts `PiCliSession`, which owns a PATH-resolved `pi --mode rpc` child. `PiRpcClient` implements strict LF-delimited JSONL, request ids, stdin backpressure, bounded diagnostics, missing-executable errors and stdin-close/SIGTERM/SIGKILL shutdown. State and extension dialogs are adapted to the existing SSE transport; session ids are obtained from the CLI, never invented by the Web server. The exported SDK wrapper below remains for legacy helper contracts, not normal session startup.
+
+The explicit `bin/pi-station-extension.mjs` uses only public extension methods for operations absent from standard RPC. Replies are ordinary notify records intercepted by the server; they never enter history or the visible command list. File snapshots use the existing read cache; a nonterminal leaf gets an isolated in-memory view. Forks still copy files without replacing the source CLI session. Custom terminal UI keeps the native RPC limitation.
+
 ## AgentSession lifecycle (`lib/rpc-manager.ts`)
 - One `AgentSessionWrapper` per session id in `globalThis.__piSessions` (`globalThis` survives Next.js hot reload; a module-level Map does not). Concurrent `startRpcSession()` calls share one start Promise (`globalThis.__piStartLocks`). Idle timeout: 10 minutes (`PI_WEB_IDLE_TIMEOUT_MS`, `0` disables).
 - Stop cannot cancel a run awaiting a promise that ignores the abort signal (a third-party extension handler or tool): `inner.abort()` never returns. So Stop (`abort`, `abort_bash`) sets `forceShutdownOnIdle` and arms the idle timer, shutting the wrapper down one idle timeout after the first Stop even while it runs. Later commands (a reload's `get_tools`, Stop again) must not push that deadline back; with `PI_WEB_IDLE_TIMEOUT_MS=0` it still arms, at 10 minutes.

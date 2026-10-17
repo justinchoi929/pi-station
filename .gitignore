@@ -15,7 +15,7 @@
 /test-results/
 
 # next.js
-/.next/
+**/.next/
 /out/
 
 # production
@@ -44,3 +44,6 @@ yarn-error.log*
 next-env.d.ts
 .factory
 e2e_*.mjs
+
+# desktop app builds
+/dist/

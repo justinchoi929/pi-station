@@ -1,5 +1,9 @@
 # Tool selection and built-in extensions
 
+## Pi Station CLI loadout
+
+New chat sessions use pi's own CLI built-ins and extension lifecycle. The client bridge carries tool pins via `pi.appendEntry()` and applies them through `getActiveTools()` / `setActiveTools()`, preserving active non-coding extension tools. It reapplies the pin after tree navigation and restores it on reload. Its tool-call handler keeps the existing read-only MCP hint check. Chat-only sessions use CLI resource-disable flags, with only the explicit transport extension loaded. The former Web-injected subagent implementation is not added to new CLI sessions.
+
 ## New session tool preset
 Tool names are passed at session creation (`POST /api/agent/new` → `toolNames[]`) and persisted in versioned `pi-web:tool-selection` custom entries (ADR 0002). No entry, or a later `cleared: true` one, means no pin: the session follows pi's `defaultTools`, as the `configured` preset ("From settings.json defaultTools") does by sending no `toolNames`. An empty array is Chat only, resolved before services are created: no extensions/skills/prompts/themes, and the ordered contents of Pi's discovered context files replace Pi's base prompt. Crossing the Chat-only boundary or clearing a pin rebuilds the wrapper; changing between nonempty presets updates it in place.
 

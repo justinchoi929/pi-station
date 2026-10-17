@@ -38,12 +38,12 @@ function sequence(...values) {
 test("the versions read as the old brand showed them: pi-web's, a p, pi's", () => {
   assert.equal(brandVersionText("0.11.0", "1.1.0"), "0.11.0p1.1.0");
   assert.equal(brandVersionText(undefined, undefined), "0.0.0p0.0.0");
-  assert.equal(BRAND_TEXT, "Pi Web");
+  assert.equal(BRAND_TEXT, "Pi Station");
   assert.equal(VERSION_SHOWN_MS, 3000);
 });
 
 test("the scramble keeps the length and the spaces and settles left to right", () => {
-  const target = "Pi Web";
+  const target = "Pi Web"; // a sample with a space; the brand itself is checked above
   const total = scrambleFrameCount(target);
   assert.equal(total, 24);
   // The first frame: nothing settled but the space, every character from the set.
@@ -69,13 +69,13 @@ test("the scramble keeps the length and the spaces and settles left to right", (
 test("the brand is a button named for what its click shows, with the brand's text", () => {
   const html = renderToStaticMarkup(React.createElement(I18nProvider, null, React.createElement(PiWebTitle)));
   const app = process.env.NEXT_PUBLIC_APP_VERSION ?? "0.0.0";
-  const pi = process.env.NEXT_PUBLIC_PI_VERSION ?? "0.0.0";
-  assert.equal(html, `<button type="button" class="sidebar-brand" aria-label="Pi Web, versions: web ${app}, pi ${pi}">Pi Web</button>`);
+  const pi = "?"; // The installed CLI version is fetched after mount.
+  assert.equal(html, `<button type="button" class="sidebar-brand" aria-label="Pi Station, versions: web ${app}, pi ${pi}">Pi Station</button>`);
   assert.doesNotMatch(html, /style=/, "no inline styles: its look is app/sidebar.css's");
   // In every language, with the visible name in it.
   for (const locale of ["en", "zh-CN", "zh-TW"]) {
     const label = getLocalePlugin(locale).messages["sidebar.brandLabel"];
-    assert.ok(label?.startsWith("Pi Web"), `${locale}: ${label}`);
+    assert.ok(label?.startsWith("Pi Station"), `${locale}: ${label}`);
     assert.match(label, /\{app\}[\s\S]*\{pi\}/);
   }
 });
@@ -88,7 +88,7 @@ test("the brand's text sits in the chevron column and is never cut at the sideba
   assert.equal(marginLeft + paddingLeft, 6 + 5);
 
   // At the sidebar's minimum (its line off), beside New's + and the search
-  // (36px cells each), "Pi Web" fits in its 15px code type (0.6em a
+  // (36px cells each), the brand fits in its 15px code type (0.6em a
   // character), and the versions in the 11px of data-fit 2.
   assert.match(brand, /(?:^|\s)font-family: var\(--font-mono\);/);
   assert.match(brand, /(?:^|\s)font-size: 15px;/);

@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useSyncExternalStore } from "react";
-import { isDarkTheme, isThemePreference, type ThemePreference, type ResolvedTheme } from "@/lib/theme";
+import { SYSTEM_THEMES, isDarkTheme, isThemePreference, type ThemePreference, type ResolvedTheme } from "@/lib/theme";
 
 export type { ThemePreference, ResolvedTheme } from "@/lib/theme";
 
@@ -13,7 +13,7 @@ type ThemeState = {
 type ToggleOrigin = { x: number; y: number };
 
 const STORAGE_KEY = "pi-theme";
-const SERVER_SNAPSHOT: ThemeState = { preference: "auto", theme: "light" };
+const SERVER_SNAPSHOT: ThemeState = { preference: "auto", theme: SYSTEM_THEMES.light };
 
 const listeners = new Set<() => void>();
 let state: ThemeState | null = null;
@@ -24,8 +24,8 @@ function emit(): void {
 }
 
 function getSystemTheme(): ResolvedTheme {
-  if (typeof window === "undefined") return "light";
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  if (typeof window === "undefined") return SYSTEM_THEMES.light;
+  return window.matchMedia("(prefers-color-scheme: dark)").matches ? SYSTEM_THEMES.dark : SYSTEM_THEMES.light;
 }
 
 function readStoredPreference(): ThemePreference {
