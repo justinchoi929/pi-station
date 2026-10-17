@@ -5,7 +5,14 @@ const { chmodSync, statSync } = require("node:fs");
 const { dirname, join } = require("node:path");
 
 if (process.platform === "darwin") {
-  const root = dirname(require.resolve("node-pty/package.json"));
+  let root;
+  try { root = dirname(require.resolve("node-pty/package.json")); }
+  catch (error) {
+    // Managed pi installs only need the launcher. The isolated Web runtime
+    // installs node-pty and applies this workaround when it is first prepared.
+    if (error.code === "MODULE_NOT_FOUND") process.exit(0);
+    throw error;
+  }
   for (const directory of ["build/Release", "build/Debug", `prebuilds/darwin-${process.arch}`]) {
     const helper = join(root, directory, "spawn-helper");
     const stat = statSync(helper, { throwIfNoEntry: false });

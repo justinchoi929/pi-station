@@ -1,6 +1,6 @@
 # Pi Station
 
-Pi Station is a Web and macOS desktop client for an independently installed pi CLI. Agent sessions run in `pi --mode rpc` subprocesses. The executable is resolved from the server's PATH; no sibling pi source checkout or `sync-pi` step is needed.
+Pi Station is a pi package providing Web and macOS desktop clients for an independently installed pi CLI. Install with `pi install git:github.com/justinchoi929/pi-station`, reload pi, then use `/station web`, `/station desktop`, `/station status`, or `/station stop`. Agent sessions run in `pi --mode rpc` subprocesses. The executable is resolved from the server's PATH; no sibling pi source checkout or `sync-pi` step is needed.
 
 ```text
 Browser / Pi Station.app
@@ -13,6 +13,10 @@ pi from PATH (--mode rpc)
 ```
 
 ## Run
+
+The package's explicit `pi.extensions` entry loads only `extensions/station.mjs`. Loading it registers commands without starting a process, including in RPC/model discovery. Commands lazily start a shared Node worker with a private authenticated local control socket. It survives pi shutdown until `/station stop`. The worker serializes launches, reuses a verified Pi Station server, and shuts down only its owned Web and Electron children. A reused development/standalone server remains running.
+
+Managed pi installs omit development dependencies. The package therefore installs only its small launcher dependencies. `runtime/package.json` and its lockfile contain the separate Web SDK, UI and build dependencies. First launch copies source into a content-addressed runtime under `<agentDir>/pi-station/runtimes/`, runs `npm ci`, and builds there. A completion marker is written only after success; failures can be retried, concurrent builds are locked, and Stop cancels preparation. No development `.next` is touched. Electron is installed separately on first desktop use. Stop the worker before updating the package and reload pi afterward.
 
 Install pi separately and verify `pi --version` in your shell, then install Pi Station's dependencies with `npm install`.
 
@@ -35,7 +39,7 @@ Do not run `next build` during development: it shares `.next` with the dev serve
 - `lib/pi-cli-session.ts`: adapts the CLI's session state and events to the existing HTTP/SSE interface. Each session owns one CLI process; browser disconnection does not stop its run.
 - `bin/pi-station-extension.mjs`: an explicitly loaded extension using only pi's public extension API. It supplies tool inspection/selection, context usage, scoped model discovery, reload and tree navigation through a hidden client command. Replies use ordinary RPC notify records and do not become conversation messages.
 - `GET /api/pi`: reports the installed executable's version at runtime. The sidebar no longer reports the version of a bundled SDK as the active engine.
-- The fixed npm pi packages currently remain as compatibility helpers for existing session-file readers and settings panels. They are registry dependencies, never `file:../pi/...` links, and do not select or run the chat engine. Removing those remaining file/config adapters is separate from the execution migration.
+- The fixed npm pi packages remain as compatibility helpers for existing session-file readers and settings panels in the isolated runtime. They are development dependencies in the source checkout, never production dependencies of the loaded pi extension. They do not select or run the chat engine.
 
 Pi's own CLI loads its normal extensions, providers, MCP servers and tools. Pi Station no longer injects its former in-process subagent engine into new chat sessions. Install any desired agent tools as pi extensions. Existing subagent transcripts remain readable.
 

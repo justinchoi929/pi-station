@@ -1,6 +1,6 @@
 # Pi Station
 
-Pi Station 是 [pi 编程智能体](https://github.com/earendil-works/pi)的本地 Web 和 macOS 桌面客户端。它直接调用你已经安装在 `PATH` 中的 `pi`，共用 pi 的配置、登录凭据、扩展和会话文件。
+Pi Station 是 [pi 编程智能体](https://github.com/earendil-works/pi)的插件包，提供本地 Web 和 macOS 桌面客户端。安装后在 pi 中通过 `/station` 打开界面。对话直接调用你已经安装在 `PATH` 中的 `pi`，共用 pi 的配置、登录凭据、扩展和会话文件。
 
 ```text
 浏览器 / Pi Station.app
@@ -41,7 +41,40 @@ pi --version
 
 如果已经在 pi 中配置过模型和登录凭据，Pi Station 会沿用它们。默认数据目录为 `~/.pi/agent`；`PI_CODING_AGENT_DIR` 可以指定其他 pi 数据目录。
 
-## 安装
+## 作为 pi 插件安装
+
+```bash
+pi install git:github.com/justinchoi929/pi-station
+```
+
+安装后重启 pi，或在已有 pi 会话里执行 `/reload`，然后使用：
+
+| pi 命令 | 功能 |
+| --- | --- |
+| `/station` 或 `/station web` | 启动本地服务并打开浏览器。 |
+| `/station desktop` | 启动本地服务并打开 macOS 桌面窗口。 |
+| `/station status` | 查看插件后台服务状态和日志路径。 |
+| `/station stop` | 关闭插件启动的桌面进程及后台服务。 |
+
+首次启动会自动安装 Web 运行依赖并构建界面，可能需要几分钟；后续启动复用已准备好的运行环境。首次打开桌面端时才会安装 Electron。用户不需要手动克隆仓库、运行 npm 或构建项目，但环境中仍需可用的 Node.js、npm 和 pi。
+
+插件及其后台服务使用同一个 `PI_CODING_AGENT_DIR`。构建产物和依赖保存在该目录的 `pi-station/` 下，默认是 `~/.pi/agent/pi-station/`，不会写入源码仓库的 `.next/`。源码更新后会使用新的运行环境缓存。
+
+服务默认监听 `127.0.0.1:30141`。如该端口已有 Pi Station 服务，会直接复用；`/station stop` 会保留这类独立启动的服务。关闭 pi 终端、浏览器或桌面窗口后，插件后台可以继续运行；需要结束时执行 `/station stop`。通过插件打开桌面端后，`⌘Q` 退出桌面窗口，后台由插件管理。
+
+插件服务日志默认在 `~/.pi/agent/pi-station/service-30141.log`。首次准备失败时，修复日志中报告的问题后重新运行命令即可。
+
+更新插件前先执行 `/station stop`，然后使用 pi 的包更新命令：
+
+```bash
+pi update --extensions
+```
+
+更新后重启 pi 或执行 `/reload`。
+
+## 从源码独立使用
+
+也可以直接克隆仓库开发或单独启动应用：
 
 ```bash
 git clone "https://github.com/justinchoi929/pi-station.git"
@@ -52,7 +85,7 @@ npm run build
 
 这是从源码安装的方式。`npm run build` 生成 Web 生产构建，供后续 Web 和桌面模式使用。已有开发服务运行时，请先停止它再构建，避免同时写入 `.next/`。
 
-## 启动 Web
+### 启动 Web
 
 在仓库目录执行：
 
@@ -70,7 +103,7 @@ npm run web -- --no-open
 
 `npm run web` 是 `node bin/pi-web.js` 的快捷方式。npm 负责执行脚本，实际后台由 Node.js 运行；对话由外部 pi CLI 执行。只读浏览会话不需要启动对话进程，模型列表查询可能短暂启动一个 pi 进程。
 
-## 启动桌面客户端
+### 启动桌面客户端
 
 在仓库目录执行：
 
@@ -99,7 +132,7 @@ npm run dist
 
 桌面端启动的服务日志位于 `~/Library/Logs/Pi Station/server.log`。
 
-## 关闭服务
+### 关闭独立启动的服务
 
 | 启动方式 | 关闭方式 |
 | --- | --- |
@@ -115,7 +148,7 @@ npm run dist
 | --- | --- | --- |
 | `PI_STATION_PI` | 指定外部 pi 可执行文件，仅填路径，不附加命令参数。 | 从 `PATH` 查找 `pi` |
 | `npm run web -- --port <端口>` 或 `PORT` | Web 生产服务端口，命令行参数优先。 | `30141` |
-| `PI_STATION_PORT` | 桌面客户端连接或启动服务时使用的端口。 | `30141` |
+| `PI_STATION_PORT` | 插件及桌面客户端连接或启动服务时使用的端口，启动 pi 前设置。 | `30141` |
 | `PI_STATION_HOME` | 覆盖桌面客户端使用的 Pi Station 仓库路径。 | 开发时为当前仓库，打包后为记录的仓库路径 |
 | `--no-open` 或 `PI_WEB_NO_OPEN=1` | Web 生产服务启动后不自动打开浏览器。 | 自动打开 |
 | `PI_WEB_APP_NAME` | PWA 安装名称。 | `Pi Station` |
@@ -137,6 +170,8 @@ npm run web -- --port 30142 --no-open
 PI_STATION_PORT=30142 npm run desktop
 ```
 
+插件模式则在启动 pi 前设置，例如 `PI_STATION_PORT=30142 pi`。`PI_WEB_NO_OPEN=1` 也可以禁止插件自动打开浏览器。
+
 这些端口参数针对生产启动方式；`npm run dev` 的默认端口由开发脚本固定为 `30141`。
 
 ## pi 升级与扩展兼容
@@ -147,7 +182,7 @@ pi 由你独立安装和升级。升级后重启 Pi Station 服务，让新会�
 - 标准 RPC 交互（选择、确认、输入、编辑）、通知、状态栏和文本组件会转发到界面。
 - 终端专用的 `custom()` UI 和组件工厂受 pi RPC 的能力限制。
 - 原 Pi Web 内置的子智能体运行机制不会注入新的 CLI 会话；旧子智能体记录仍可查看，新的子智能体能力应由 pi 扩展提供。
-- 固定版本的 npm pi SDK 依赖目前仍用于部分会话文件读取和设置兼容逻辑；对话执行使用的是 PATH 中的 pi。
+- 固定版本的 npm pi SDK 依赖只安装在隔离的 Web 运行环境中，用于部分会话文件读取和设置兼容逻辑；pi 扩展本身不会加载这些物理 SDK 副本。对话执行使用的是 PATH 中的 pi。
 
 实现细节见 [PI_STATION.md](./PI_STATION.md)。
 
@@ -179,6 +214,8 @@ components/      React 界面组件
 hooks/           客户端状态和交互
 lib/             pi RPC、会话、模型、文件和 Git 逻辑
 bin/             Web 启动入口和 pi RPC 桥接扩展
+extensions/      pi 插件的 /station 命令入口
+runtime/         隔离 Web 运行环境的依赖清单和锁文件
 desktop/         Electron 主进程、预加载和打包脚本
 public/          静态资源和 PWA 文件
 docs/            功能说明与开发笔记

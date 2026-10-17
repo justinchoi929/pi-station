@@ -1,7 +1,7 @@
 {
   "name": "pi-station",
   "version": "0.1.0",
-  "description": "Web and desktop client for the pi CLI on PATH (fork of @agegr/pi-web)",
+  "description": "Pi package with Web and macOS desktop clients for the pi CLI on PATH",
   "license": "MIT",
   "engines": {
     "node": ">=22.19.0"
@@ -32,6 +32,10 @@
     "dist": "node desktop/dist.mjs"
   },
   "dependencies": {
+    "cross-spawn": "7.0.6",
+    "proper-lockfile": "4.1.2"
+  },
+  "devDependencies": {
     "@earendil-works/pi-agent-core": "1.3.0",
     "@earendil-works/pi-ai": "1.3.0",
     "@earendil-works/pi-codemode": "1.3.0",
@@ -39,20 +43,6 @@
     "@earendil-works/pi-mcp": "1.3.0",
     "@earendil-works/pi-telemetry": "1.3.0",
     "@earendil-works/pi-tui": "1.3.0",
-    "@xterm/addon-fit": "0.11.0",
-    "@xterm/xterm": "6.0.0",
-    "cross-spawn": "7.0.6",
-    "js-yaml": "^5.2.3",
-    "next": "16.3.8",
-    "node-pty": "1.2.0-beta.15",
-    "proper-lockfile": "4.1.2",
-    "react": "^19.2.4",
-    "react-dom": "^19.2.4",
-    "semver": "7.8.5",
-    "undici": "8.11.0",
-    "web-push": "^3.6.7"
-  },
-  "devDependencies": {
     "@tailwindcss/postcss": "^4.2.2",
     "@types/cross-spawn": "6.0.6",
     "@types/js-yaml": "^4.0.9",
@@ -64,17 +54,24 @@
     "@types/react-syntax-highlighter": "^15.5.13",
     "@types/semver": "7.8.0",
     "@types/web-push": "^3.6.4",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
     "ansi_up": "^6.0.6",
     "electron": "44.8.0",
     "electron-builder": "26.15.3",
     "eslint": "^9",
     "eslint-config-next": "16.3.8",
     "jiti": "^2.7.0",
+    "js-yaml": "^5.2.3",
     "katex": "^0.16.47",
     "mammoth": "^1.12.0",
     "mermaid": "^11.16.1",
+    "next": "16.3.8",
+    "node-pty": "1.2.0-beta.15",
     "playwright": "^1.62.1",
     "postcss": "^8.5.26",
+    "react": "^19.2.4",
+    "react-dom": "^19.2.4",
     "react-markdown": "^10.1.0",
     "react-syntax-highlighter": "^16.1.1",
     "rehype-katex": "^7.0.1",
@@ -84,9 +81,20 @@
     "remark-frontmatter": "^5.0.0",
     "remark-gfm": "^4.0.1",
     "remark-math": "^6.0.0",
+    "semver": "7.8.5",
     "tailwindcss": "^4.2.2",
-    "typescript": "^5"
+    "typescript": "^5",
+    "undici": "8.11.0",
+    "web-push": "^3.6.7"
   },
   "private": true,
-  "main": "desktop/main.mjs"
+  "main": "desktop/main.mjs",
+  "keywords": [
+    "pi-package"
+  ],
+  "pi": {
+    "extensions": [
+      "./extensions/station.mjs"
+    ]
+  }
 }

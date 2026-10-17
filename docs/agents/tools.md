@@ -1,5 +1,9 @@
 # Tool selection and built-in extensions
 
+## Pi package launcher
+
+`extensions/station.mjs` is the sole package resource. It registers `/station [web|desktop|stop|status]` without creating resources at load time. `bin/station-client.mjs` starts a detached shared Node worker; `station-service.mjs` owns and serializes Web/Electron launches behind a token-authenticated private local socket. Only owned children are stopped. `station-runtime.mjs` prepares a locked, content-addressed source copy and its production build outside the checkout, with cancellation and success-only readiness. Runtime SDK dependencies live in `runtime/package.json`, not the extension package's production dependencies, so pi's host SDK mapping remains authoritative. The runtime lockfile must stay in sync with its manifest. Desktop dependencies are installed only for desktop use.
+
 ## Pi Station CLI loadout
 
 New chat sessions use pi's own CLI built-ins and extension lifecycle. The client bridge carries tool pins via `pi.appendEntry()` and applies them through `getActiveTools()` / `setActiveTools()`, preserving active non-coding extension tools. It reapplies the pin after tree navigation and restores it on reload. Its tool-call handler keeps the existing read-only MCP hint check. Chat-only sessions use CLI resource-disable flags, with only the explicit transport extension loaded. The former Web-injected subagent implementation is not added to new CLI sessions.
