@@ -53,8 +53,10 @@ pi install git:github.com/justinchoi929/pi-station
 | --- | --- |
 | `/station` 或 `/station web` | 启动本地服务并打开浏览器。 |
 | `/station desktop` | 启动本地服务并打开 macOS 桌面窗口。 |
-| `/station status` | 查看插件后台服务状态和日志路径。 |
+| `/station status` | 在输入框上方显示后台、Web、桌面状态和日志路径。 |
 | `/station stop` | 关闭插件启动的桌面进程及后台服务。 |
+
+在 pi 终端中输入 `/station `（末尾加空格），用上下键选择操作，按回车直接执行；Tab 只补全命令。
 
 首次启动会自动安装 Web 运行依赖并构建界面，可能需要几分钟；后续启动复用已准备好的运行环境。首次打开桌面端时才会安装 Electron。用户不需要手动克隆仓库、运行 npm 或构建项目，但环境中仍需可用的 Node.js、npm 和 pi。
 
@@ -63,6 +65,8 @@ pi install git:github.com/justinchoi929/pi-station
 服务默认监听 `127.0.0.1:30141`。如该端口已有 Pi Station 服务，会直接复用；`/station stop` 会保留这类独立启动的服务。关闭 pi 终端、浏览器或桌面窗口后，插件后台可以继续运行；需要结束时执行 `/station stop`。通过插件打开桌面端后，`⌘Q` 退出桌面窗口，后台由插件管理。
 
 插件服务日志默认在 `~/.pi/agent/pi-station/service-30141.log`。首次准备失败时，修复日志中报告的问题后重新运行命令即可。
+
+`/station status` 的结果会保留到下一次执行 `/station` 命令或重载扩展；它是查询时的状态快照，不会自动刷新。后台管理进程运行不代表 Web 已启动，独立启动的 Web 服务也会单独显示。查询只更新界面，不调用模型或写入对话历史。
 
 更新插件前先执行 `/station stop`，然后使用 pi 的包更新命令：
 

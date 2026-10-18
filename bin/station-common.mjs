@@ -82,16 +82,32 @@ export function serviceRequest(paths, token, command, timeout = 2_000) {
   });
 }
 
-export async function probeStation(url, environment = process.env) {
-  try {
+export function probeStation(url, environment = process.env) {
+  // pi may configure its global fetch to use a proxy. Loopback probes must stay local.
+  return new Promise((resolve) => {
     const headers = environment.PI_WEB_PASSWORD
       ? { authorization: `Basic ${Buffer.from(`pi:${environment.PI_WEB_PASSWORD}`).toString("base64")}` } : {};
-    const response = await fetch(`${url}/api/station`, { headers, signal: AbortSignal.timeout(2_000), redirect: "error" });
-    if (response.status === 404) { await response.body?.cancel(); return "other"; }
-    if (!response.ok) { await response.body?.cancel(); return "other"; }
-    const data = await response.json();
-    return data.application === "pi-station" ? "station" : "other";
-  } catch (error) {
-    return error.cause?.code === "ECONNREFUSED" ? "absent" : "other";
-  }
+    const req = request(`${url}/api/station`, { headers, agent: false }, (response) => {
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        response.destroy();
+        resolve("other");
+        return;
+      }
+      let output = "";
+      response.setEncoding("utf8");
+      response.on("data", (chunk) => {
+        output += chunk;
+        if (output.length > 64 * 1024) req.destroy(new Error("Pi Station probe response is too large"));
+      });
+      response.on("error", () => resolve("other"));
+      response.on("end", () => {
+        try { resolve(JSON.parse(output).application === "pi-station" ? "station" : "other"); }
+        catch { resolve("other"); }
+      });
+    });
+    const timer = setTimeout(() => req.destroy(new Error("Pi Station probe timed out")), 2_000);
+    req.on("close", () => clearTimeout(timer));
+    req.on("error", (error) => resolve(error.code === "ECONNREFUSED" ? "absent" : "other"));
+    req.end();
+  }).catch(() => "other");
 }

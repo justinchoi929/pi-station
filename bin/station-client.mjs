@@ -3,7 +3,7 @@ import { closeSync, mkdirSync, openSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { spawn } from "node:child_process";
 import lockfile from "proper-lockfile";
-import { cleanEnvironment, findNode, packageRoot, readServiceRecord, serviceRequest, stationPaths } from "./station-common.mjs";
+import { cleanEnvironment, findNode, packageRoot, probeStation, readServiceRecord, serviceRequest, stationPaths } from "./station-common.mjs";
 
 export async function stationCommand(command, environment = process.env) {
   if (!["web", "desktop", "stop", "status"].includes(command)) throw new Error("Use /station web, desktop, stop or status");
@@ -21,7 +21,10 @@ export async function stationCommand(command, environment = process.env) {
         record = null;
       }
     }
-    if (!record && ["stop", "status"].includes(command)) return { running: false, log: paths.log };
+    if (!record && ["stop", "status"].includes(command)) return {
+      running: false, log: paths.log,
+      ...(command === "status" ? { webStatus: await probeStation(paths.url, environment), url: paths.url } : {}),
+    };
     if (!record) {
       const node = findNode(environment);
       const token = randomBytes(32).toString("hex");
@@ -59,5 +62,7 @@ export async function stationCommand(command, environment = process.env) {
     }
     throw new Error(`Pi Station is still stopping. See ${paths.log}`);
   }
-  return { ...result, running: true, log: paths.log };
+  return { ...result, running: true, log: paths.log,
+    ...(command === "status" ? { webStatus: await probeStation(paths.url, environment) } : {}),
+  };
 }
