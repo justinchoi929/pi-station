@@ -1,10 +1,11 @@
-import { Text } from "@earendil-works/pi-tui";
+import type { ExtensionAPI, ExtensionContext } from "@earendil-works/pi-coding-agent";
+import { Text, type AutocompleteProvider } from "@earendil-works/pi-tui";
 import { stationCommand } from "../bin/station-client.mjs";
 
 const commands = ["web", "desktop", "stop", "status"];
 const statusEntryType = "pi-station:status";
 
-function stationAutocomplete(current) {
+function stationAutocomplete(current: AutocompleteProvider): AutocompleteProvider {
   return {
     triggerCharacters: current.triggerCharacters,
     async getSuggestions(lines, cursorLine, cursorCol, options) {
@@ -24,27 +25,26 @@ function stationAutocomplete(current) {
   };
 }
 
-function statusLines(result) {
+function statusLines(result: Awaited<ReturnType<typeof stationCommand>>) {
   const web = result.webStatus === "station"
     ? `${result.url} (${result.webOwned ? "plugin-managed" : "independently started"})`
     : result.webStatus === "absent" ? "not running" : "port occupied or inaccessible";
   return [
     "Pi Station status",
-    `CLI: ${result.stopping ? "stopping" : result.running ? "running" : "not running"}`,
     `Web: ${web}`,
     `Desktop: ${result.desktop ? "running" : "not running"}`,
     `Log: ${result.log}`,
   ];
 }
 
-export default function stationExtension(pi) {
+export default function stationExtension(pi: ExtensionAPI) {
   // Loading extensions also happens during model discovery. Start nothing here.
-  pi.registerEntryRenderer(statusEntryType, (entry, _options, theme) => {
+  pi.registerEntryRenderer<{ text?: string; level?: string }>(statusEntryType, (entry, _options, theme) => {
     const text = entry.data?.text;
     if (typeof text !== "string") return;
-    return new Text(entry.data.level === "error" ? theme.fg("error", text) : text, 1, 0);
+    return new Text(entry.data?.level === "error" ? theme.fg("error", text) : text, 1, 0);
   });
-  const replyToStatus = (ctx, text, level = "info") => {
+  const replyToStatus = (ctx: ExtensionContext, text: string, level: "info" | "error" = "info") => {
     if (ctx.mode === "tui") {
       // Custom entries are transcript items, excluded from model context by pi.
       pi.appendEntry(statusEntryType, { text, level });
@@ -77,7 +77,7 @@ export default function stationExtension(pi) {
           : result.running ? `Pi Station: ${result.url}\nLog: ${result.log}` : "No plugin-managed Pi Station service is running.";
         ctx.ui.notify(message, "info");
       } catch (error) {
-        const message = `Pi Station: ${error.message}`;
+        const message = `Pi Station: ${error instanceof Error ? error.message : String(error)}`;
         if (command === "status") replyToStatus(ctx, message, "error");
         else ctx.ui.notify(message, "error");
       } finally { ctx.ui.setStatus("pi-station", undefined); }

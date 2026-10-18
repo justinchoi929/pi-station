@@ -53,7 +53,7 @@ pi install git:github.com/justinchoi929/pi-station
 | --- | --- |
 | `/station` 或 `/station web` | 启动本地服务并打开浏览器。 |
 | `/station desktop` | 启动本地服务并打开 macOS 桌面窗口。 |
-| `/station status` | 在对话区输出 CLI、Web、桌面状态和日志路径。 |
+| `/station status` | 在对话区输出 Web、桌面状态和日志路径。 |
 | `/station stop` | 关闭插件启动的桌面进程及后台服务。 |
 
 在 pi 终端中输入 `/station `（末尾加空格），用上下键选择操作，按回车直接执行；Tab 只补全命令。
@@ -66,7 +66,7 @@ pi install git:github.com/justinchoi929/pi-station
 
 插件服务日志默认在 `~/.pi/agent/pi-station/service-30141.log`。首次准备失败时，修复日志中报告的问题后重新运行命令即可。
 
-`/station status` 在 pi 终端中生成独立的对话区条目，随对话一起滚动，不会固定在输入框上方或覆盖上一次查询。它是查询时的状态快照，再次查询可获取最新状态。后台管理进程运行不代表 Web 已启动，独立启动的 Web 服务也会单独显示。状态以本地扩展记录保存，不进入模型上下文，也不调用模型。Web/桌面端沿用标准通知展示。
+`/station status` 在 pi 终端中生成独立的对话区条目，随对话一起滚动，不会固定在输入框上方或覆盖上一次查询。它只显示 Web、桌面状态和日志路径，是查询时的状态快照，再次查询可获取最新状态。独立启动的 Web 服务也会单独显示。状态以本地扩展记录保存，不进入模型上下文，也不调用模型。Web/桌面端沿用标准通知展示。
 
 更新插件前先执行 `/station stop`，然后使用 pi 的包更新命令：
 
@@ -75,6 +75,8 @@ pi update --extensions
 ```
 
 更新后重启 pi 或执行 `/reload`。
+
+如果旧版状态面板在 `/reload` 后仍固定显示，原因是 pi 对旧 `.mjs` 入口的原生模块缓存。新版已改用可热重载的 TypeScript 入口；更新后执行 `/reload` 即可切换到对话区状态条目。
 
 ## 从源码独立使用
 

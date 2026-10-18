@@ -94,7 +94,7 @@
   ],
   "pi": {
     "extensions": [
-      "./extensions/station.mjs"
+      "./extensions/station.ts"
     ]
   }
 }
