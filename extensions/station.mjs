@@ -1,6 +1,8 @@
+import { Text } from "@earendil-works/pi-tui";
 import { stationCommand } from "../bin/station-client.mjs";
 
 const commands = ["web", "desktop", "stop", "status"];
+const statusEntryType = "pi-station:status";
 
 function stationAutocomplete(current) {
   return {
@@ -37,6 +39,17 @@ function statusLines(result) {
 
 export default function stationExtension(pi) {
   // Loading extensions also happens during model discovery. Start nothing here.
+  pi.registerEntryRenderer(statusEntryType, (entry, _options, theme) => {
+    const text = entry.data?.text;
+    if (typeof text !== "string") return;
+    return new Text(entry.data.level === "error" ? theme.fg("error", text) : text, 1, 0);
+  });
+  const replyToStatus = (ctx, text, level = "info") => {
+    if (ctx.mode === "tui") {
+      // Custom entries are transcript items, excluded from model context by pi.
+      pi.appendEntry(statusEntryType, { text, level });
+    } else ctx.ui.notify(text, level);
+  };
   pi.on("session_start", (_event, ctx) => {
     if (ctx.mode === "tui") ctx.ui.addAutocompleteProvider(stationAutocomplete);
   });
@@ -56,7 +69,7 @@ export default function stationExtension(pi) {
       try {
         const result = await stationCommand(command);
         if (command === "status") {
-          ctx.ui.notify(statusLines(result).join("\n"), "info");
+          replyToStatus(ctx, statusLines(result).join("\n"));
           return;
         }
         const message = command === "stop"
@@ -64,7 +77,9 @@ export default function stationExtension(pi) {
           : result.running ? `Pi Station: ${result.url}\nLog: ${result.log}` : "No plugin-managed Pi Station service is running.";
         ctx.ui.notify(message, "info");
       } catch (error) {
-        ctx.ui.notify(`Pi Station: ${error.message}`, "error");
+        const message = `Pi Station: ${error.message}`;
+        if (command === "status") replyToStatus(ctx, message, "error");
+        else ctx.ui.notify(message, "error");
       } finally { ctx.ui.setStatus("pi-station", undefined); }
     },
   });
