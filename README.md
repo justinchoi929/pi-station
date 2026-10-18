@@ -53,7 +53,7 @@ pi install git:github.com/justinchoi929/pi-station
 | --- | --- |
 | `/station` 或 `/station web` | 启动本地服务并打开浏览器。 |
 | `/station desktop` | 启动本地服务并打开 macOS 桌面窗口。 |
-| `/station status` | 在输入框上方显示后台、Web、桌面状态和日志路径。 |
+| `/station status` | 在对话区输出 CLI、Web、桌面状态和日志路径。 |
 | `/station stop` | 关闭插件启动的桌面进程及后台服务。 |
 
 在 pi 终端中输入 `/station `（末尾加空格），用上下键选择操作，按回车直接执行；Tab 只补全命令。
@@ -66,7 +66,7 @@ pi install git:github.com/justinchoi929/pi-station
 
 插件服务日志默认在 `~/.pi/agent/pi-station/service-30141.log`。首次准备失败时，修复日志中报告的问题后重新运行命令即可。
 
-`/station status` 的结果会保留到下一次执行 `/station` 命令或重载扩展；它是查询时的状态快照，不会自动刷新。后台管理进程运行不代表 Web 已启动，独立启动的 Web 服务也会单独显示。查询只更新界面，不调用模型或写入对话历史。
+`/station status` 在 pi 终端的对话区输出一条命令回复，不会固定在输入框上方。它是查询时的状态快照，再次查询可获取最新状态。后台管理进程运行不代表 Web 已启动，独立启动的 Web 服务也会单独显示。查询只更新界面，不调用模型或写入模型对话历史。
 
 更新插件前先执行 `/station stop`，然后使用 pi 的包更新命令：
 

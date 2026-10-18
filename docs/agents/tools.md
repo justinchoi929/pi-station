@@ -6,7 +6,7 @@
 
 In TUI sessions, the public autocomplete-provider wrapper promotes only standalone `/station` action suggestions to whole-command completions: Enter submits the chosen action immediately, while Tab still fills the editor. Other commands, multiline text, and text after the cursor keep the original provider behavior. No editor or keybinding replacement is installed, and RPC/print sessions have no wrapper.
 
-`/station status` keeps a snapshot in a standard string-array widget above the editor until the next station command or extension reload. Notifications in the TUI are replaceable status lines, so they are not the sole output for status queries. The client probes the Web endpoint independently of the worker record, including when no worker exists: `running` refers to the control worker, `webStatus` to the actual endpoint. Loopback probes use `node:http` with their own agent, since pi may route its global fetch through a proxy. Queries never start a worker, send a model message, or add session entries.
+`/station status` outputs one standard `ctx.ui.notify()` reply in the TUI's chat area, like pi's built-in command responses. It clears any fixed widget left by older versions and never pins a new panel above the editor. The client probes the Web endpoint independently of the worker record, including when no worker exists: `running` refers to the control worker (labelled `CLI`), `webStatus` to the actual endpoint. Loopback probes use `node:http` with their own agent, since pi may route its global fetch through a proxy. Queries never start a worker, send a model message, or add session entries.
 
 ## Pi Station CLI loadout
 

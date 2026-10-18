@@ -49,14 +49,14 @@ export default function stationExtension(pi) {
         ctx.ui.notify("Usage: /station [web|desktop|stop|status]", "info");
         return;
       }
+      // Clear the fixed status panel left by older versions.
       ctx.ui.setWidget("pi-station", undefined);
       ctx.ui.setStatus("pi-station", `Pi Station: ${command}…`);
       if (["web", "desktop"].includes(command)) ctx.ui.notify("Opening Pi Station. The first launch prepares its runtime and may take several minutes.", "info");
       try {
         const result = await stationCommand(command);
         if (command === "status") {
-          // Keep the report beside the editor instead of a replaceable chat notice.
-          ctx.ui.setWidget("pi-station", statusLines(result));
+          ctx.ui.notify(statusLines(result).join("\n"), "info");
           return;
         }
         const message = command === "stop"
@@ -64,7 +64,6 @@ export default function stationExtension(pi) {
           : result.running ? `Pi Station: ${result.url}\nLog: ${result.log}` : "No plugin-managed Pi Station service is running.";
         ctx.ui.notify(message, "info");
       } catch (error) {
-        if (command === "status") ctx.ui.setWidget("pi-station", ["Pi Station status failed", String(error.message)]);
         ctx.ui.notify(`Pi Station: ${error.message}`, "error");
       } finally { ctx.ui.setStatus("pi-station", undefined); }
     },
